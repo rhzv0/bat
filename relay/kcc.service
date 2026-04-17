@@ -1,0 +1,15 @@
+[Unit]
+Description=Kernel Compilation Center (KCC)
+After=network.target
+
+[Service]
+Type=simple
+User=root
+ExecStart=/usr/bin/python3 /root/kcc/kcc-server.py
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
