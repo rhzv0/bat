@@ -34,3 +34,4 @@ source build.env && cd agent && make -B server-arm64 \
   TRIGGER="${TRIGGER:-udp}" INTERVAL="${BEACON_INTERVAL:-30s}" SECRET="$SECRET"
 # nunca usar 'go build' direto pq SharedSecret fica vazio e agentes são rejeitados
 ```
+<img width="1220" height="2712" alt="Screenshot_2026-04-17-17-08-18-103_com termux" src="https://github.com/user-attachments/assets/3e7d6967-c6b6-4a11-82cf-b9bd340dc396" />
