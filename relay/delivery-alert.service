@@ -1,0 +1,16 @@
+[Unit]
+Description=Honeypot delivery alert   Telegram notification on agent download
+After=nginx.service
+Wants=nginx.service
+
+[Service]
+Type=simple
+EnvironmentFile=/etc/bat/tg.env
+ExecStart=/opt/delivery-alert.sh
+Restart=always
+RestartSec=5
+StandardOutput=null
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

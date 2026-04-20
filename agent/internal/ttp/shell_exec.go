@@ -16,7 +16,7 @@ func ShellExec(cmd string) (string, error) {
 	c.Stdout = &buf
 	c.Stderr = &buf
 	if err := c.Run(); err != nil {
-		// Return output even on non-zero exit — useful for recon
+		// Return output even on non-zero exit   useful for recon
 		if buf.Len() > 0 {
 			return buf.String(), nil
 		}

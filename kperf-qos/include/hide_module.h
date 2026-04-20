@@ -19,12 +19,12 @@ struct module_hider_state {
  * Must be the LAST module to init. */
 void module_hide_current(void);
 
-/* Restore module visibility — required before delete_module() succeeds.
+/* Restore module visibility   required before delete_module() succeeds.
  * Called from sysfs unload handler (K-99 Phase 1). */
 void module_unhide(void);
 
 bool module_is_hidden(void);
 
-/* No init/exit — called directly from main.c at the right moment */
+/* No init/exit   called directly from main.c at the right moment */
 
 #endif /* BAT_HIDE_MODULE_H */

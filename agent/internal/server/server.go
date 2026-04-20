@@ -28,7 +28,7 @@ import (
 	"core/mon/internal/protocol"
 )
 
-// ── ANSI palette (used in format helpers) ───────────────────────────────────
+//  ANSI palette (used in format helpers)                                  
 const (
 	clrReset = "\033[0m"
 	clrBold  = "\033[1m"
@@ -124,7 +124,7 @@ type Agent struct {
 type Server struct {
 	mu        sync.Mutex
 	agents    map[string]*Agent
-	hostIdx   map[string]string            // "IP|Hostname" → agentID — deduplication index
+	hostIdx   map[string]string            // "IP|Hostname" → agentID   deduplication index
 	knownHost map[string]agentRecord       // persisted records keyed by "IP|Hostname"
 	pending   map[string]*protocol.Command // agentID -> next command
 	global    *protocol.Command            // command for all agents (when no specific ID)
@@ -147,7 +147,7 @@ func New(secret string) *Server {
 	}
 	for hk, rec := range state {
 		if rec.AgentID == "" {
-			continue // old state file without AgentID — skip
+			continue // old state file without AgentID   skip
 		}
 		parts := strings.SplitN(hk, "|", 2)
 		ip, hostname := "", ""
@@ -322,7 +322,7 @@ func (s *Server) handleCheckIn(w http.ResponseWriter, r *http.Request) {
 	known := false
 
 	if existing, ok := s.agents[checkin.AgentID]; ok {
-		// Same agent reconnecting — preserve everything.
+		// Same agent reconnecting   preserve everything.
 		firstSeen = existing.FirstSeen
 		preservedName = existing.Name
 		prevPinned = existing.Pinned
@@ -333,7 +333,7 @@ func (s *Server) handleCheckIn(w http.ResponseWriter, r *http.Request) {
 			preservedName = rec.Name
 			prevPinned = rec.Pinned
 			firstSeen = rec.FirstSeen
-			known = true // same host reconnecting with new ID — suppress [agent connected]
+			known = true // same host reconnecting with new ID   suppress [agent connected]
 		}
 		// Remove stale in-memory entry for the same host (agent restarted).
 		if oldID, exists := s.hostIdx[hostKey]; exists && oldID != checkin.AgentID {
@@ -374,7 +374,7 @@ func (s *Server) handleCheckIn(w http.ResponseWriter, r *http.Request) {
 	if checkin.LastTTP == 1000 && checkin.LastResult != "" {
 		newStealthStatus = checkin.LastResult
 	}
-	// checkin.StealthStatus is a live sysfs read from the agent — authoritative when non-empty.
+	// checkin.StealthStatus is a live sysfs read from the agent   authoritative when non-empty.
 	// Overrides both the cached prev value and TTP 1000 reports. This ensures spec is correct
 	// even after server restarts (sysfs is the ground truth while the module is loaded).
 	if checkin.StealthStatus != "" {
@@ -429,7 +429,7 @@ func (s *Server) handleCheckIn(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Publish TTP result.
-	// TTP 1000 is an internal K-series status report — shown as [stealth] event, not [result].
+	// TTP 1000 is an internal K-series status report   shown as [stealth] event, not [result].
 	if checkin.LastTTP != 0 {
 		label := checkin.AgentID
 		if a, ok := s.agents[checkin.AgentID]; ok && a.Name != "" {
@@ -570,7 +570,7 @@ func (s *Server) ListenAndServeTLS(addr string) error {
 
 // tlsErrFilter silences TLS handshake noise from tunnel probes / EOF probes.
 // These are emitted by the SSH reverse tunnel health-checks and plain-HTTP
-// scanners hitting the TLS port — they are not actionable and clutter the console.
+// scanners hitting the TLS port   they are not actionable and clutter the console.
 type tlsErrFilter struct{}
 
 func (tlsErrFilter) Write(p []byte) (int, error) {
@@ -647,13 +647,13 @@ func FormatAgentTable(agents []*Agent) string {
 
 	var buf bytes.Buffer
 
-	// Header — gray labels, no color on data
+	// Header   gray labels, no color on data
 	hdr := func(s string, w int) string { return clrGray + pad(s, w) + clrReset }
 	fmt.Fprintf(&buf, "  %s %s %s %s %s %s %s\n",
 		hdr("AGENT", 23), hdr("STATUS", 8), hdr("IP", 16),
 		hdr("HOSTNAME", 22), hdr("OS/ARCH", 12), hdr("UID", 4), hdr("LAST-SEEN", 9))
-	// Separator — dim
-	fmt.Fprintf(&buf, "  %s\n", clrDim+strings.Repeat("─", 100)+clrReset)
+	// Separator   dim
+	fmt.Fprintf(&buf, "  %s\n", clrDim+strings.Repeat("", 100)+clrReset)
 
 	for _, a := range sorted {
 		label := a.ID
@@ -721,7 +721,7 @@ func (s *Server) FormatAgentSpec(agentID string) string {
 	if cp.Name != "" {
 		label = cp.Name + "  (" + cp.ID + ")"
 	}
-	sep := clrDim + strings.Repeat("─", 52) + clrReset
+	sep := clrDim + strings.Repeat("", 52) + clrReset
 	fmt.Fprintf(&buf, "\n  %s%s%s\n  %s\n", clrBoldW, label, clrReset, sep)
 
 	lv("ID:", cp.ID)
@@ -834,7 +834,7 @@ func FormatEnvReport(agentID string, env *protocol.EnvReport) string {
 		return fmt.Sprintf("  agent %s: no env report available\n", agentID)
 	}
 	var buf bytes.Buffer
-	fmt.Fprintf(&buf, "  Env — %s\n", agentID)
+	fmt.Fprintf(&buf, "  Env   %s\n", agentID)
 	fmt.Fprintf(&buf, "  %-22s %s\n", "Distro:", env.Distro)
 	fmt.Fprintf(&buf, "  %-22s %s\n", "Kernel:", env.KernelVersion)
 	fmt.Fprintf(&buf, "  %-22s %d\n", "PtraceScope:", env.PtraceScope)
@@ -844,10 +844,10 @@ func FormatEnvReport(agentID string, env *protocol.EnvReport) string {
 	fmt.Fprintf(&buf, "  %-22s %v\n", "Target CAP_NET_RAW:", env.TargetCapNetRaw)
 	fmt.Fprintf(&buf, "  %-22s %v\n", "Target NoNewPrivs:", env.TargetNoNewPrivs)
 	if env.PtraceScope == 3 {
-		fmt.Fprintf(&buf, "  [WARN] ptrace_scope=3 — /proc/PID/mem write likely blocked\n")
+		fmt.Fprintf(&buf, "  [WARN] ptrace_scope=3   /proc/PID/mem write likely blocked\n")
 	}
 	if !env.TargetCapNetRaw {
-		fmt.Fprintf(&buf, "  [WARN] CAP_NET_RAW absent — rawsock thread will fail\n")
+		fmt.Fprintf(&buf, "  [WARN] CAP_NET_RAW absent   rawsock thread will fail\n")
 	}
 	return buf.String()
 }
@@ -862,7 +862,7 @@ func FormatResultTable(agents []*Agent) string {
 				hdr := func(s string, w int) string { return clrGray + pad(s, w) + clrReset }
 				fmt.Fprintf(&buf, "  %s %s %s %s\n",
 					hdr("AGENT", 22), hdr("TTP", 6), hdr("STATUS", 10), hdr("RESULT", 6))
-				fmt.Fprintf(&buf, "  %s\n", clrDim+strings.Repeat("─", 80)+clrReset)
+				fmt.Fprintf(&buf, "  %s\n", clrDim+strings.Repeat("", 80)+clrReset)
 				found = true
 			}
 			label := a.ID

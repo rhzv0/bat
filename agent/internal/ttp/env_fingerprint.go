@@ -1,6 +1,6 @@
 package ttp
 
-// env_fingerprint.go — R-01: pre-flight environment fingerprint
+// env_fingerprint.go   R-01: pre-flight environment fingerprint
 //
 // CollectEnvFingerprint gathers conditions relevant to injection viability:
 //   - ptrace_scope (Yama LSM)
@@ -34,7 +34,7 @@ func CollectEnvFingerprint(targetCandidates []string) protocol.EnvReport {
 	// SELinux
 	r.SELinuxMode = selinuxMode()
 
-	// Kernel version (via /proc/version — avoids syscall type differences across arch)
+	// Kernel version (via /proc/version   avoids syscall type differences across arch)
 	r.KernelVersion = kernelVersion()
 
 	// Distro (via /etc/os-release ID field)
@@ -101,10 +101,10 @@ func parseDistro() string {
 
 // detectRELRO reads the ELF of the target's main binary and returns:
 //
-//	"none"    — no PT_GNU_RELRO segment
-//	"partial" — PT_GNU_RELRO present, but DF_1_NOW not set (lazy binding)
-//	"full"    — PT_GNU_RELRO + DF_1_NOW (GOT sealed at load time; CoW required)
-//	"unknown" — ELF parse failed
+//	"none"      no PT_GNU_RELRO segment
+//	"partial"   PT_GNU_RELRO present, but DF_1_NOW not set (lazy binding)
+//	"full"      PT_GNU_RELRO + DF_1_NOW (GOT sealed at load time; CoW required)
+//	"unknown"   ELF parse failed
 //
 // R-02: this result is included in EnvReport and used by selectInjectionMethod.
 func detectRELRO(pid int) string {

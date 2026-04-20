@@ -1,4 +1,4 @@
-# bat-rootkit.so — LD_PRELOAD rootkit build
+# bat-rootkit.so   LD_PRELOAD rootkit build
 #
 # USAGE:
 #   make                                  # build with defaults

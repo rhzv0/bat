@@ -43,14 +43,14 @@ func CallKCC(kernelVersion, arch, configHash string) (*KCCResponse, error) {
 		return nil, fmt.Errorf("marshal request: %w", err)
 	}
 
-	// TCP connect — must succeed before proceeding
+	// TCP connect   must succeed before proceeding
 	conn, err := net.DialTimeout("tcp", KCCAddr, 5*time.Second)
 	if err != nil {
 		return nil, fmt.Errorf("dial KCC %s: %w", KCCAddr, err)
 	}
 	defer conn.Close()
 
-	// Deadline: 305s — extra 5s buffer over kcc-server's 300s build timeout
+	// Deadline: 305s   extra 5s buffer over kcc-server's 300s build timeout
 	conn.SetDeadline(time.Now().Add(305 * time.Second)) //nolint:errcheck
 
 	// Send request

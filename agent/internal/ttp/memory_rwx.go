@@ -27,7 +27,7 @@ func MemoryRWX(size int) error {
 		buf[i] = 0xCC
 	}
 
-	// mprotect to RWX — this is what Aura detects
+	// mprotect to RWX   this is what Aura detects
 	err = syscall.Mprotect(buf, syscall.PROT_READ|syscall.PROT_WRITE|syscall.PROT_EXEC)
 	if err != nil {
 		_ = syscall.Munmap(buf)

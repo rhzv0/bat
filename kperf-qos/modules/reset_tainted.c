@@ -1,9 +1,9 @@
-/* reset_tainted.c — Clears kernel taint flag after LKM load.
+/* reset_tainted.c   Clears kernel taint flag after LKM load.
  *
  * Without this, /proc/sys/kernel/tainted stays non-zero after insmod,
  * leaking evidence even if the module is hidden.
  *
- * NOTE: kthread approach was removed — calling kthread_stop() on an already-
+ * NOTE: kthread approach was removed   calling kthread_stop() on an already-
  * exited thread (the thread returns immediately after reset_taint_mask()) causes
  * a NULL pointer dereference in kthread_stop(). Run directly in module init.
  */
@@ -25,4 +25,4 @@ int reset_tainted_init(void)
     return 0;
 }
 
-void reset_tainted_exit(void) { /* nothing to undo — taint stays cleared */ }
+void reset_tainted_exit(void) { /* nothing to undo   taint stays cleared */ }

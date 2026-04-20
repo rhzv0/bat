@@ -1,0 +1,42 @@
+{
+  "version": "v1",
+  "status": "ok",
+  "timestamp": "2025-04-19T11:22:08Z",
+  "account": {
+    "id": "acct_9b2e5f14d7c3",
+    "name": "Demo Account",
+    "plan": "growth",
+    "domain": "demo.example.com",
+    "region": "us-east-1"
+  },
+  "keys": {
+    "platform":  "hxa_live_sk_4f9m2n8pqr7xv3tz",
+    "readonly":  "hxa_live_ro_9x2q7r5t1e6w8y4u",
+    "cloudflare": "hxa_cf_2m5n8p1q4r7s0t3u"
+  },
+  "agent": {
+    "version": "2.4.1",
+    "installed": false,
+    "update_available": false,
+    "setup_cmd": "curl -fsSL https://__CDN_DOMAIN__/api/setup | bash",
+    "download": {
+      "linux_amd64": "https://__CDN_DOMAIN__/releases/helix-agent-linux-amd64",
+      "linux_arm64": "https://__CDN_DOMAIN__/releases/helix-agent-linux-arm64"
+    },
+    "checksum": {
+      "linux_amd64": "sha256:c3f9e2b1d4f8a5c3e7b9d2f4a6c8e1a7",
+      "linux_arm64": "sha256:d4f6a8c1d3e5f7a9b2c4d6e8f1a3b5c2"
+    }
+  },
+  "cloudflare": {
+    "zone_id": "cf_zone_a7b3c9e2f1d4",
+    "api_token": "cf_tok_live_9f2q7r5t1e6w8y4u3x",
+    "connected": true,
+    "managed_records": 8
+  },
+  "webhooks": {
+    "endpoint": "https://__CDN_DOMAIN__/api/events",
+    "secret": "whs_hxa_3f8a2d9b7c1e4f6a",
+    "events": ["incident.created", "incident.resolved", "agent.connected", "cf.rule_applied"]
+  }
+}

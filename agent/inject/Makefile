@@ -1,4 +1,4 @@
-# inject/Makefile — builds stub.bin from stub.asm
+# inject/Makefile   builds stub.bin from stub.asm
 # Requires: nasm
 # On Ubuntu: sudo apt-get install -y nasm
 

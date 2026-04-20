@@ -7,7 +7,7 @@ import (
 )
 
 // SelfDestruct removes all rootkit artifacts and exits cleanly.
-// TTP 222 — operator-controlled shutdown for lab sessions.
+// TTP 222   operator-controlled shutdown for lab sessions.
 func SelfDestruct() {
 	soPath := rootkitSOPath()
 
@@ -23,7 +23,7 @@ func SelfDestruct() {
 	// 4. Zero-fill sensitive memory regions before exit
 	zeroSensitive()
 
-	// 5. Exit — no deferred cleanup, no panic recovery
+	// 5. Exit   no deferred cleanup, no panic recovery
 	os.Exit(0)
 }
 

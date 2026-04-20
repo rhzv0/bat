@@ -41,7 +41,7 @@ _install_ubuntu_headers() {
     local tmp_list="/etc/apt/sources.list.d/kcc-ubuntu-headers-tmp.list"
     local codenames=("noble" "jammy" "focal" "mantic" "oracular")
 
-    log "Ubuntu kernel detected — trying Ubuntu archives for $pkg..."
+    log "Ubuntu kernel detected   trying Ubuntu archives for $pkg..."
 
     local codename
     for codename in "${codenames[@]}"; do
@@ -146,10 +146,10 @@ if [[ ! -d "$HEADERS_DIR" ]]; then
             "linux-headers-${KERNEL_VERSION}" 2>&1 | tail -5 || true
         if [[ ! -d "$HEADERS_DIR" ]]; then
             if _is_ubuntu_kernel "$KERNEL_VERSION"; then
-                log "apt-get did not provide headers — trying Ubuntu archive repos..."
+                log "apt-get did not provide headers   trying Ubuntu archive repos..."
                 _install_ubuntu_headers "$KERNEL_VERSION"
             else
-                log "apt-get did not provide headers — trying Debian repo download..."
+                log "apt-get did not provide headers   trying Debian repo download..."
                 _install_debian_headers "$KERNEL_VERSION"
             fi
         fi
@@ -172,8 +172,8 @@ if [[ -f "${HEADERS_DIR}/include/generated/compile.h" ]]; then
         CC_FLAG="CC=gcc-${GCC_VER}"
         log "Using gcc-${GCC_VER} (from kernel compile.h)"
     elif [[ -n "$GCC_VER" ]]; then
-        # Versão específica não instalada — tenta instalar via apt antes de usar fallback
-        log "gcc-${GCC_VER} not found — trying apt-get install gcc-${GCC_VER}..."
+        # Versão específica não instalada   tenta instalar via apt antes de usar fallback
+        log "gcc-${GCC_VER} not found   trying apt-get install gcc-${GCC_VER}..."
         if DEBIAN_FRONTEND=noninteractive apt-get install -y "gcc-${GCC_VER}" 2>&1 | tail -3 && \
            command -v "gcc-${GCC_VER}" &>/dev/null; then
             CC_FLAG="CC=gcc-${GCC_VER}"
@@ -185,11 +185,11 @@ if [[ -f "${HEADERS_DIR}/include/generated/compile.h" ]]; then
         fi
     else
         CC_FLAG="CC=$(command -v gcc)"
-        log "No compile.h version found — using CC=$(command -v gcc)"
+        log "No compile.h version found   using CC=$(command -v gcc)"
     fi
 else
     CC_FLAG=""
-    log "compile.h not found — using default gcc"
+    log "compile.h not found   using default gcc"
 fi
 
 # Cria build dir isolado

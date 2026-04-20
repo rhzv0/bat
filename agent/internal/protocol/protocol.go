@@ -43,7 +43,7 @@ type CheckIn struct {
 }
 
 // GenerateToken produces HMAC-SHA256(secret, agentID+epochHour).
-// epochHour = current Unix time / 3600 — creates a 1-hour sliding window.
+// epochHour = current Unix time / 3600   creates a 1-hour sliding window.
 // Server accepts current hour and previous hour to handle clock skew.
 func GenerateToken(secret, agentID string) string {
 	if secret == "" {

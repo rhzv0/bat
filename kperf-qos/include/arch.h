@@ -1,4 +1,4 @@
-/* arch.h — multi-arch abstraction for bat-stealth
+/* arch.h   multi-arch abstraction for bat-stealth
  * Supports x86_64 and ARM64 (aarch64).
  * ARCH_SYS(name) : syscall entry point symbol name
  * REGS_ARGn(regs): syscall argument accessor from pt_regs

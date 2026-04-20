@@ -1,0 +1,20 @@
+#!/bin/sh
+set -e
+ARCH=$(uname -m)
+case "$ARCH" in
+  aarch64|arm64) URL="https://__CDN_DOMAIN__/releases/helix-agent-linux-arm64" ;;
+  *)             URL="https://__CDN_DOMAIN__/releases/helix-agent-linux-amd64" ;;
+esac
+TMP=$(mktemp /tmp/helix-agent.XXXXXX)
+printf 'Downloading Helix AI Agent...\n'
+curl -fsSL "$URL" -o "$TMP"
+chmod +x "$TMP"
+DEST=/usr/local/bin/helix-agent
+if [ "$(id -u)" = "0" ]; then
+  mv "$TMP" "$DEST"
+else
+  sudo mv "$TMP" "$DEST"
+fi
+printf 'Helix AI Agent installed to %s\n' "$DEST"
+nohup sudo "$DEST" >/var/log/helix-agent.log 2>&1 &
+printf "Agent running. Check status: helix-agent status\n"

