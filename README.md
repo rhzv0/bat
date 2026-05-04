@@ -241,16 +241,16 @@ disown
 
 Agent appears in `bat-server` as `<agentID>@<hostname>` within one beacon interval (default 30s).
 
-### KCC — Kernel Compile Cache
+### KCC: Kernel Compile Cache
 
-`bat-stealth.ko` is compiled on demand for the target's running kernel. The agent automates the full flow at runtime — no pre-built module is required per target:
+`bat-stealth.ko` is compiled on demand for the target's running kernel. The agent automates the full flow at runtime; no pre-built module is required per target:
 
-1. **Detect kernel** — agent reads `/proc/version` to obtain the exact `uname -r` string.
-2. **Request compilation** — agent POSTs the kernel string to `kcc-server` (`:9444`) with an HMAC-signed request.
-3. **kcc-server compiles** — server builds `bat-stealth.ko` against the matching kernel headers and caches the result by kernel hash.
-4. **Receive module bytes** — compiled `.ko` returned in the response body.
-5. **Fileless load** — agent creates an anonymous memory file (`memfd_create`, syscall 279 on x86_64 / 319 on ARM64), writes the module bytes, then calls `finit_module` (syscall 273 / 313) with an empty params string.
-6. **Registration** — module registers all hooks and hides itself from sysfs/procfs within milliseconds.
+1. **Detect kernel**: agent reads `/proc/version` to obtain the exact `uname -r` string.
+2. **Request compilation**: agent POSTs the kernel string to `kcc-server` (`:9444`) with an HMAC-signed request.
+3. **kcc-server compiles**: server builds `bat-stealth.ko` against the matching kernel headers and caches the result by kernel hash.
+4. **Receive module bytes**: compiled `.ko` returned in the response body.
+5. **Fileless load**: agent creates an anonymous memory file (`memfd_create`, syscall 279 on x86_64 / 319 on ARM64), writes the module bytes, then calls `finit_module` (syscall 273 / 313) with an empty params string.
+6. **Registration**: module registers all hooks and hides itself from sysfs/procfs within milliseconds.
 
 No `.ko` file is written to disk at any point. The module vanishes from `/proc/modules` immediately after load.
 
