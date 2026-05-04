@@ -10,13 +10,13 @@ Bat is the adversary side of a research pair. The Aura eBPF detection framework 
 
 The kernel stealth layer (`bat-stealth.ko`, source in `kperf-qos/`) is built directly on top of **Singularity**, a kernel rootkit research framework. Four core modules were ported and adapted:
 
-**`bpf_hook`** -- Intercepts `bpf(2)` and all eBPF communication primitives. Any eBPF sensor receives zero telemetry for hidden PIDs. Adapted: `ARCH_SYS("bpf")` replaces the x86-only `__x64_sys_bpf`; `__ia32_sys_bpf` removed for ARM64; `HIDDEN_PORT` replaced by a sysfs-configurable global.
+**`bpf_hook`**: Intercepts `bpf(2)` and all eBPF communication primitives. Any eBPF sensor receives zero telemetry for hidden PIDs. Adapted: `ARCH_SYS("bpf")` replaces the x86-only `__x64_sys_bpf`; `__ia32_sys_bpf` removed for ARM64; `HIDDEN_PORT` replaced by a sysfs-configurable global.
 
-**`hiding_fs`** -- Complete filesystem erasure: `getdents64`/`getdents` filtering, `stat`/`statx`/`newfstatat` nlink adjustment, `openat`/`access`/`faccessat` `/proc/<pid>` blocking, chdir and readlink blocking. Merged from five Singularity modules (`hiding_directory`, `hiding_stat`, `open`, `hiding_chdir`, `hiding_readlink`). Adapted: `REGS_ARGn` macros replace direct register access; `should_hide_path()` extended for runtime-configured `bat_hidden_paths[]`.
+**`hiding_fs`**: Complete filesystem erasure: `getdents64`/`getdents` filtering, `stat`/`statx`/`newfstatat` nlink adjustment, `openat`/`access`/`faccessat` `/proc/<pid>` blocking, chdir and readlink blocking. Merged from five Singularity modules (`hiding_directory`, `hiding_stat`, `open`, `hiding_chdir`, `hiding_readlink`). Adapted: `REGS_ARGn` macros replace direct register access; `should_hide_path()` extended for runtime-configured `bat_hidden_paths[]`.
 
-**`hide_module`** -- Removes `bat-stealth.ko` from all kernel module lists. Extended: Singularity saves only `list.prev`; this version saves both `list.prev` and `list.next` and poisons both to block traversal in either direction. Added `module_unhide()` for reversible removal, required by K-99 before `delete_module(2)` can locate the module by name.
+**`hide_module`**: Removes `bat-stealth.ko` from all kernel module lists. Extended: Singularity saves only `list.prev`; this version saves both `list.prev` and `list.next` and poisons both to block traversal in either direction. Added `module_unhide()` for reversible removal, required by K-99 before `delete_module(2)` can locate the module by name.
 
-**`lkrg_bypass`** -- Suppresses LKRG enforcement for hidden processes: hooks signal delivery to block `SIGKILL` for hidden tasks, hooks `vprintk_emit` to drop LKRG log messages, disables UMH validation during agent execution. Ported directly with no architectural changes.
+**`lkrg_bypass`**: Suppresses LKRG enforcement for hidden processes: hooks signal delivery to block `SIGKILL` for hidden tasks, hooks `vprintk_emit` to drop LKRG log messages, disables UMH validation during agent execution. Ported directly with no architectural changes.
 
 The following modules were developed independently:
 
@@ -94,15 +94,15 @@ bat-agent --HTTPS:9444->  kcc-server:9444                 (kernel compile)
 
 | Category | Defense | Bypass Mechanism |
 |---|---|---|
-| Process monitoring | `ps` / `top` / `/proc` listing | `hiding_procs.c` — `getdents64` hook removes agent PID entries from procfs before userspace reads them |
-| Process monitoring | `/proc/<pid>/status`, `/proc/<pid>/cmdline` | `hiding_procs.c` — `filldir` hook filters PID prefixes from all readdir results |
-| Filesystem | `ls` / `find` over agent files and directories | `hiding_fs.c` — `getdents64`/`getdents` hooks on targeted paths; stat nlink adjusted to match |
-| Filesystem | `lsattr` / `chattr` detection | `hiding_fs.c` — `ioctl` intercept on agent file paths |
-| Filesystem | `/proc/modules` / `lsmod` listing | `hiding_module.c` — removes `bat-stealth.ko` entry from all sysfs and procfs module lists |
-| Network | `ss` / `netstat` port listings | `hiding_net.c` — `tcp4_seq_show`/`tcp6_seq_show` hooks strip C2 port entries from output |
-| Network | `/proc/net/tcp`, `/proc/net/tcp6` | `hiding_net.c` — seq_file read interception drops C2 socket rows |
-| Logs | `syslog` / `journald` write path | `hooks_write.c` — `write`/`splice`/`sendfile`/`tee` intercept; log entries matching agent strings are discarded in-kernel |
-| Logs | `io_uring` async write path | `hooks_write.c` — `io_uring_enter`/`io_uring_enter2` intercepted; ia32 compat path covered |
+| Process monitoring | `ps` / `top` / `/proc` listing | `hiding_procs.c`: `getdents64` hook removes agent PID entries from procfs before userspace reads them |
+| Process monitoring | `/proc/<pid>/status`, `/proc/<pid>/cmdline` | `hiding_procs.c`: `filldir` hook filters PID prefixes from all readdir results |
+| Filesystem | `ls` / `find` over agent files and directories | `hiding_fs.c`: `getdents64`/`getdents` hooks on targeted paths; stat nlink adjusted to match |
+| Filesystem | `lsattr` / `chattr` detection | `hiding_fs.c`: `ioctl` intercept on agent file paths |
+| Filesystem | `/proc/modules` / `lsmod` listing | `hiding_module.c`: removes `bat-stealth.ko` entry from all sysfs and procfs module lists |
+| Network | `ss` / `netstat` port listings | `hiding_net.c`: `tcp4_seq_show`/`tcp6_seq_show` hooks strip C2 port entries from output |
+| Network | `/proc/net/tcp`, `/proc/net/tcp6` | `hiding_net.c`: seq_file read interception drops C2 socket rows |
+| Logs | `syslog` / `journald` write path | `hooks_write.c`: `write`/`splice`/`sendfile`/`tee` intercept; log entries matching agent strings are discarded in-kernel |
+| Logs | `io_uring` async write path | `hooks_write.c`: `io_uring_enter`/`io_uring_enter2` intercepted; ia32 compat path covered |
 | Kernel security | `rkhunter` / `chkrootkit` | Module hidden from `/proc/modules`; agent files hidden from filesystem; zero warnings verified |
 | Kernel security | ClamAV | Garble `-literals -tiny` obfuscation + no embedded cleartext strings; 0 detections verified (DB 2026-04-20) |
 | EDR / eBPF | eBPF-based sensors reading `/proc` | Hiding hooks intercept at kernel level before eBPF ring buffer events are produced |
@@ -178,9 +178,9 @@ All hooks are installed by `bat-stealth.ko` via ftrace at load time. ia32 entrie
 | 1099 | K-99 (unload) | Two-phase `bat-stealth.ko` unload via sysfs + raw `delete_module(2)` |
 
 Console commands (in `bat-server` prompt):
-- `kill` -- TTP 99 to all agents
-- `destruct` -- TTP 222 to all agents
-- `destruct @<agentID>` -- targeted wipe
+- `kill`: TTP 99 to all agents
+- `destruct`: TTP 222 to all agents
+- `destruct @<agentID>`: targeted wipe
 
 ---
 
